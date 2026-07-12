@@ -108,7 +108,7 @@ export function JobListPage({ tag }: JobListPageProps) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       <MainHeader
         onSubmit={handleParse}
         loading={parseLoading}
@@ -172,6 +172,7 @@ export function JobListPage({ tag }: JobListPageProps) {
                 job={job}
                 onOpen={setSelectedJob}
                 onDelete={setDeleteTarget}
+                selectedKeywords={selectedKeywords}
               />
             ))}
           </div>
@@ -179,7 +180,7 @@ export function JobListPage({ tag }: JobListPageProps) {
       </div>
 
       {parseLoading && (
-        <Modal open title="로딩 중" onClose={() => {}} variant="loading">
+        <Modal open title="로딩 중" onClose={() => { }} variant="loading">
           <p>
             공고 내용을 가져오는 중이에요! 공고 내용이 완전하지 않을 수 있어요.
             확인 후 수정해서 저장해 보세요.

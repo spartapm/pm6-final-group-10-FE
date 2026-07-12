@@ -67,7 +67,7 @@ export function MainHeader({
 
   if (variant === "tag") {
     return (
-      <header className="flex h-[198px] items-center gap-8 px-10">
+      <header className="flex min-h-[198px] shrink-0 items-center gap-8 px-10 py-4">
         <button
           onClick={() => window.location.reload()}
           className="shrink-0"
@@ -88,7 +88,7 @@ export function MainHeader({
   }
 
   return (
-    <header className="flex h-[198px] flex-col items-center justify-center gap-6 px-10">
+    <header className="flex min-h-[198px] shrink-0 flex-col items-center justify-center gap-6 px-10 py-4">
       <button
         onClick={() => window.location.reload()}
         aria-label="새로고침"

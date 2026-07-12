@@ -48,7 +48,7 @@ export function FilterBar({
     SORT_OPTIONS.find((o) => o.value === sort)?.label ?? "저장일 내림차순";
 
   return (
-    <div className="space-y-3 bg-dd-gray-100 px-10 py-4">
+    <div className="shrink-0 space-y-3 bg-dd-gray-100 px-10 py-4">
       <div className="flex items-center gap-3">
         <div className="relative shrink-0">
           <button

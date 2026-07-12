@@ -9,16 +9,38 @@ interface JobCardProps {
   job: JobPosting;
   onOpen: (job: JobPosting) => void;
   onDelete: (job: JobPosting) => void;
+  selectedKeywords?: string[];
 }
 
-export function JobCard({ job, onOpen, onDelete }: JobCardProps) {
+// 한글 → 영문 순으로 오름차순 정렬 (JD-C05)
+function koThenEnCompare(a: string, b: string): number {
+  const aKo = /^[가-힣]/.test(a);
+  const bKo = /^[가-힣]/.test(b);
+  if (aKo !== bKo) return aKo ? -1 : 1;
+  return a.localeCompare(b, "ko", { sensitivity: "base" });
+}
+
+export function JobCard({
+  job,
+  onOpen,
+  onDelete,
+  selectedKeywords = [],
+}: JobCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const dday = getDdayLabel(job.deadline_date);
   const tagStyle = PURPOSE_TAGS.find((t) => t.value === job.purpose_tag);
 
-  const keywords = [...(job.competency_keywords ?? [])].sort((a, b) =>
-    a.localeCompare(b, "ko", { sensitivity: "base" })
-  );
+  // 필터로 선택된 키워드를 앞으로 재배열하고(각각 한글→영문 정렬),
+  // 선택된 키워드는 색상으로 강조한다. (JD-F05 / JD-C05)
+  const selectedSet = new Set(selectedKeywords);
+  const allKeywords = job.competency_keywords ?? [];
+  const selected = allKeywords
+    .filter((kw) => selectedSet.has(kw))
+    .sort(koThenEnCompare);
+  const rest = allKeywords
+    .filter((kw) => !selectedSet.has(kw))
+    .sort(koThenEnCompare);
+  const keywords = [...selected, ...rest];
 
   return (
     <div
@@ -65,15 +87,22 @@ export function JobCard({ job, onOpen, onDelete }: JobCardProps) {
       <div className="mt-3 shrink-0">
         <p className="text-xs font-medium text-dd-black">핵심역량</p>
         <div className="mt-1 flex h-11 flex-wrap content-start items-start gap-1 overflow-hidden">
-          {keywords.map((kw) => (
-            <span
-              key={kw}
-              className="shrink-0 whitespace-nowrap rounded border border-dd-gray-400 px-2 py-0.5 text-xs leading-none"
-              style={{ backgroundColor: "#FFFFFF", color: "#18181B" }}
-            >
-              {kw}
-            </span>
-          ))}
+          {keywords.map((kw) => {
+            const isSelected = selectedSet.has(kw);
+            return (
+              <span
+                key={kw}
+                className="shrink-0 whitespace-nowrap rounded border px-2 py-0.5 text-xs leading-none"
+                style={{
+                  backgroundColor: isSelected ? "#18181B" : "#FFFFFF",
+                  color: isSelected ? "#FFFFFF" : "#18181B",
+                  borderColor: isSelected ? "#18181B" : "#D4D4D8",
+                }}
+              >
+                {kw}
+              </span>
+            );
+          })}
         </div>
       </div>
 

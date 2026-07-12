@@ -67,6 +67,7 @@ export function JobDetailModal({
           preferences: form.preferences,
           industry: form.industry,
           deadline_raw: form.deadline_raw,
+          deadline_date: form.deadline_date,
           required_documents: form.required_documents,
           application_method: form.application_method,
           raw_text: form.raw_text,
@@ -221,21 +222,36 @@ export function JobDetailModal({
             {tab === "memo" && <MemoTab form={form} onChange={updateForm} />}
           </div>
 
-          <div className="flex shrink-0 justify-end gap-3 border-t border-dd-gray-400 px-9 py-4">
-            <button
-              type="button"
-              onClick={() => setShowDelete(true)}
-              className="rounded-lg bg-dd-black px-6 py-2 text-sm font-medium text-white"
-            >
-              삭제
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="rounded-lg bg-dd-green px-6 py-2 text-sm font-medium text-white"
-            >
-              저장하기
-            </button>
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-dd-gray-400 px-9 py-4">
+            {form.source_url ? (
+              <a
+                href={form.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full border border-dd-black bg-white px-6 py-2 text-sm font-medium text-dd-black"
+              >
+                원본 공고 보러가기
+              </a>
+            ) : (
+              <span />
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDelete(true)}
+                className="rounded-lg bg-dd-black px-6 py-2 text-sm font-medium text-white"
+              >
+                삭제
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="rounded-lg bg-dd-green px-6 py-2 text-sm font-medium text-white"
+              >
+                저장하기
+              </button>
+            </div>
           </div>
         </div>
       </div>

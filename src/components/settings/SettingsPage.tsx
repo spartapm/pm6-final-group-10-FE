@@ -92,7 +92,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="relative min-h-screen px-10 py-8">
+    <div className="relative h-full overflow-y-auto px-10 py-8">
       <h1 className="text-2xl font-bold text-dd-black">설정</h1>
 
       <button

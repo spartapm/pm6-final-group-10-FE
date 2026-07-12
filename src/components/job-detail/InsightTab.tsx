@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { JobPosting } from "@/lib/types";
+import { isoToYymmdd, maskYymmdd, yymmddToIso } from "@/lib/deadline";
 
 interface InsightTabProps {
   form: JobPosting;
@@ -34,6 +35,43 @@ function SectionLabel({
   );
 }
 
+const FIELD_CLASS =
+  "w-full resize-none rounded-lg border border-dd-gray-400 bg-dd-gray-100 px-3 py-2 text-xs leading-relaxed text-dd-black outline-none";
+
+// 입력된 텍스트 길이에 비례해 높이가 자동으로 늘어나는 textarea
+// (내부 스크롤 없이 확장). JD-DP-INS-11/12/13
+function AutoGrowTextarea({
+  value,
+  onChange,
+  minRows = 1,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  minRows?: number;
+  placeholder?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      rows={minRows}
+      placeholder={placeholder}
+      className={`${FIELD_CLASS} overflow-hidden`}
+    />
+  );
+}
+
 function FieldBox({
   value,
   onChange,
@@ -45,17 +83,13 @@ function FieldBox({
   rows?: number;
   placeholder?: string;
 }) {
-  const className =
-    "w-full resize-none rounded-lg border border-dd-gray-400 bg-dd-gray-100 px-3 py-2 text-xs leading-relaxed text-dd-black outline-none";
-
   if (rows > 1) {
     return (
-      <textarea
+      <AutoGrowTextarea
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={rows}
+        onChange={onChange}
+        minRows={rows}
         placeholder={placeholder}
-        className={className}
       />
     );
   }
@@ -66,7 +100,7 @@ function FieldBox({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className={className}
+      className={FIELD_CLASS}
     />
   );
 }
@@ -89,6 +123,59 @@ function InfoRow({
         onChange={(e) => onChange(e.target.value)}
         className="min-w-0 flex-1 rounded border border-dd-gray-400 bg-dd-gray-100 px-1.5 py-0.5 text-xs text-dd-black outline-none"
       />
+    </div>
+  );
+}
+
+// 마감일: yy-mm-dd 형식(숫자만) 입력. 값은 deadline_date(YYYY-MM-DD)로 관리한다.
+function DeadlineRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  onChange: (iso: string | null) => void;
+}) {
+  const [text, setText] = useState(() => isoToYymmdd(value));
+
+  useEffect(() => {
+    setText(isoToYymmdd(value));
+  }, [value]);
+
+  function handleChange(raw: string) {
+    const masked = maskYymmdd(raw);
+    setText(masked);
+
+    if (masked === "") {
+      onChange(null);
+      return;
+    }
+    const iso = yymmddToIso(masked);
+    if (iso) onChange(iso);
+  }
+
+  const invalid = text.replace(/\D/g, "").length === 6 && !yymmddToIso(text);
+
+  return (
+    <div className="flex items-start gap-3">
+      <span className="w-14 shrink-0 pt-0.5 text-xs text-dd-gray-500">{label}</span>
+      <div className="min-w-0 flex-1">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={text}
+          onChange={(e) => handleChange(e.target.value)}
+          placeholder="yy-mm-dd"
+          maxLength={8}
+          className="w-full rounded border border-dd-gray-400 bg-dd-gray-100 px-1.5 py-0.5 text-xs text-dd-black outline-none"
+        />
+        {invalid && (
+          <p className="mt-0.5 text-[10px] text-dd-error">
+            yy-mm-dd 형식으로 입력해 주세요.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -139,7 +226,9 @@ export function InsightTab({ form, onChange }: InsightTabProps) {
             />
             <FieldBox
               value={String(form.recruitment_field ?? "")}
-              onChange={(value) => onChange({ recruitment_field: value })}
+              onChange={(value) =>
+                onChange({ recruitment_field: value, job_title: value })
+              }
               placeholder="모집 분야가 파싱된 정보가 뜨는 공간입니다."
             />
           </section>
@@ -178,10 +267,10 @@ export function InsightTab({ form, onChange }: InsightTabProps) {
 
             {editingKeywords ? (
               <>
-                <input
+                <AutoGrowTextarea
                   value={keywordInput}
-                  onChange={(e) => setKeywordInput(e.target.value)}
-                  className="w-full rounded-lg border border-dd-gray-400 bg-dd-gray-100 px-3 py-2 text-xs outline-none"
+                  onChange={setKeywordInput}
+                  minRows={2}
                   placeholder="역량키워드, 역량키워드..."
                 />
                 <p
@@ -192,7 +281,7 @@ export function InsightTab({ form, onChange }: InsightTabProps) {
                 </p>
               </>
             ) : (
-              <div className="flex h-[50px] flex-wrap content-start items-start gap-1.5 overflow-hidden">
+              <div className="flex flex-wrap content-start items-start gap-1.5">
                 {keywords.map((kw) => (
                   <span
                     key={kw}
@@ -225,10 +314,10 @@ export function InsightTab({ form, onChange }: InsightTabProps) {
                 value={String(form.industry ?? "")}
                 onChange={(value) => onChange({ industry: value })}
               />
-              <InfoRow
+              <DeadlineRow
                 label="공고 마감일"
-                value={String(form.deadline_raw ?? "")}
-                onChange={(value) => onChange({ deadline_raw: value })}
+                value={form.deadline_date ?? null}
+                onChange={(iso) => onChange({ deadline_date: iso })}
               />
             </div>
           </section>
