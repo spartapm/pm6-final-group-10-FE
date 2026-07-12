@@ -109,10 +109,12 @@ function InfoRow({
   label,
   value,
   onChange,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  placeholder?: string;
 }) {
   return (
     <div className="flex items-start gap-3">
@@ -121,7 +123,8 @@ function InfoRow({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-w-0 flex-1 rounded border border-dd-gray-400 bg-dd-gray-100 px-1.5 py-0.5 text-xs text-dd-black outline-none"
+        placeholder={placeholder}
+        className="min-w-0 flex-1 rounded border border-dd-gray-400 bg-dd-gray-100 px-1.5 py-0.5 text-xs text-dd-black outline-none placeholder:text-dd-gray-500"
       />
     </div>
   );
@@ -229,7 +232,7 @@ export function InsightTab({ form, onChange }: InsightTabProps) {
               onChange={(value) =>
                 onChange({ recruitment_field: value, job_title: value })
               }
-              placeholder="모집 분야가 파싱된 정보가 뜨는 공간입니다."
+              placeholder="모집 분야를 인식하지 못했어요. 직접 입력해 주세요."
             />
           </section>
 
@@ -308,11 +311,13 @@ export function InsightTab({ form, onChange }: InsightTabProps) {
                 label="기업 이름"
                 value={String(form.company_name ?? "")}
                 onChange={(value) => onChange({ company_name: value })}
+                placeholder="인식 안 됨 · 직접 입력해 주세요"
               />
               <InfoRow
                 label="업종"
                 value={String(form.industry ?? "")}
                 onChange={(value) => onChange({ industry: value })}
+                placeholder="인식 안 됨 · 직접 입력해 주세요"
               />
               <DeadlineRow
                 label="공고 마감일"
@@ -334,7 +339,7 @@ export function InsightTab({ form, onChange }: InsightTabProps) {
             <FieldBox
               value={String(form.required_documents ?? "")}
               onChange={(value) => onChange({ required_documents: value })}
-              placeholder="접수 서류가 파싱된 정보가 뜨는 공간입니다."
+              placeholder="접수 서류를 인식하지 못했어요. 직접 입력해 주세요."
             />
           </section>
 
@@ -350,7 +355,7 @@ export function InsightTab({ form, onChange }: InsightTabProps) {
             <FieldBox
               value={String(form.application_method ?? "")}
               onChange={(value) => onChange({ application_method: value })}
-              placeholder="지원 방법이 파싱된 정보가 뜨는 공간입니다."
+              placeholder="지원 방법을 인식하지 못했어요. 직접 입력해 주세요."
             />
           </section>
         </div>
@@ -369,7 +374,7 @@ export function InsightTab({ form, onChange }: InsightTabProps) {
               value={String(form.job_description ?? "")}
               onChange={(value) => onChange({ job_description: value })}
               rows={3}
-              placeholder="담당 업무가 파싱된 정보가 뜨는 공간입니다."
+              placeholder="담당 업무를 인식하지 못했어요. 직접 입력해 주세요."
             />
           </section>
 
@@ -386,7 +391,7 @@ export function InsightTab({ form, onChange }: InsightTabProps) {
               value={String(form.qualifications ?? "")}
               onChange={(value) => onChange({ qualifications: value })}
               rows={2}
-              placeholder="자격 요건이 파싱된 정보가 뜨는 공간입니다."
+              placeholder="자격 요건을 인식하지 못했어요. 직접 입력해 주세요."
             />
           </section>
 
@@ -403,7 +408,7 @@ export function InsightTab({ form, onChange }: InsightTabProps) {
               value={String(form.preferences ?? "")}
               onChange={(value) => onChange({ preferences: value })}
               rows={3}
-              placeholder="우대 사항이 파싱된 정보가 뜨는 공간입니다."
+              placeholder="우대 사항을 인식하지 못했어요. 직접 입력해 주세요."
             />
           </section>
         </div>

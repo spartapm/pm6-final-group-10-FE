@@ -76,7 +76,7 @@ export function OriginalTab({
           value={form.raw_text}
           onChange={(e) => onChange({ raw_text: e.target.value })}
           rows={6}
-          placeholder="채용공고에서 파싱된 텍스트의 원문이 보여지는 공간입니다."
+          placeholder="공고 원문을 인식하지 못했어요. 원문을 직접 붙여넣어 주세요."
           className="w-full rounded-[8px] border border-dd-gray-400 bg-dd-gray-100 px-3 py-2 text-sm outline-none"
         />
       </div>
