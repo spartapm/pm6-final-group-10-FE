@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { createClient } from "@/lib/supabase/client";
@@ -62,6 +63,8 @@ export function SettingsPage() {
   }
 
   async function handleLogout() {
+    if (posthog.__loaded) posthog.reset();
+
     if (!isSupabaseConfigured()) {
       clearDevSession();
       router.push("/login");
@@ -77,6 +80,8 @@ export function SettingsPage() {
 
   async function handleWithdraw() {
     await apiFetch("/account", { method: "DELETE" });
+
+    if (posthog.__loaded) posthog.reset();
 
     if (!isSupabaseConfigured()) {
       clearDevSession();

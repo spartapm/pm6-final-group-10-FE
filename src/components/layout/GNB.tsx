@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import posthog from "posthog-js";
 import { AssetImage } from "@/components/ui/AssetImage";
 import { assets } from "@/lib/assets";
 import { TAG_ROUTES } from "@/lib/constants";
@@ -23,7 +24,16 @@ export function GNB() {
 
   useEffect(() => {
     apiFetch<Profile>("/profile")
-      .then(setProfile)
+      .then((data) => {
+        setProfile(data);
+        // 로그인 유저를 PostHog에 식별(distinct id = Supabase user.id)
+        if (posthog.__loaded && data?.id) {
+          posthog.identify(data.id, {
+            email: data.email,
+            nickname: data.nickname,
+          });
+        }
+      })
       .catch(() => setProfile(null));
   }, []);
 
