@@ -2,6 +2,7 @@ export const assets = {
   logoIcon: "/assets/logo-icon.png",
   logoMain: "/assets/logo-main.png",
   logoDdakpool: "/assets/logo-ddakpool.png",
+  logoWordmark: "/assets/logo-wordmark.png",
   logoAuth: "/assets/logo-auth.png",
   iconSettings: "/assets/icon-settings.svg",
   iconChevronDownWhite: "/assets/icon-chevron-down-white.svg",

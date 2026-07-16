@@ -154,11 +154,16 @@ export function HeaderArea({ onSubmit, loading, compact }: HeaderAreaProps) {
             placeholderClassName="size-[84px] rounded bg-dd-gray-200"
           />
         </Link>
-        <Link
-          href="/all"
-          className="font-alata text-[45px] leading-none tracking-[-0.45px] text-dd-black"
-        >
-          ddakpool
+        <Link href="/all" className="shrink-0" aria-label="딱풀 홈">
+          <AssetImage
+            src={assets.logoWordmark}
+            alt="ddakpool"
+            width={194}
+            height={64}
+            className="h-[61px] w-auto"
+            placeholderClassName="h-[61px] w-[185px] rounded bg-dd-gray-200"
+            priority
+          />
         </Link>
       </div>
 
