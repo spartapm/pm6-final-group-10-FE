@@ -36,11 +36,11 @@ export function AuthCarousel() {
         </div>
       ))}
 
-      <div className="absolute left-1/2 top-6 flex -translate-x-1/2 gap-2">
+      <div className="absolute left-1/2 top-5 flex -translate-x-1/2 gap-2">
         {slides.map((_, i) => (
           <span
             key={i}
-            className={`h-1 w-8 rounded-full transition-colors ${
+            className={`h-2.5 w-5 rounded-full transition-colors ${
               i === active ? "bg-dd-green" : "bg-white"
             }`}
           />

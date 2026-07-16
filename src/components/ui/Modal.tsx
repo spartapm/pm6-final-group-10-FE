@@ -1,6 +1,8 @@
 "use client";
 
-import { Spinner } from "./Spinner";
+import { assets } from "@/lib/assets";
+import { layout } from "@/lib/design-tokens";
+import { AssetImage } from "./AssetImage";
 
 export type ModalVariant =
   | "error"
@@ -22,20 +24,37 @@ interface ModalProps {
 }
 
 function ModalIcon({ variant }: { variant: ModalVariant }) {
-  if (variant === "success") {
+  if (variant === "loading") {
     return (
-      <div className="flex size-12 items-center justify-center rounded-full bg-dd-green text-xl text-white">
-        ✓
-      </div>
+      <AssetImage
+        src={assets.iconModalLoading}
+        alt=""
+        width={43}
+        height={43}
+        className="animate-spin"
+        placeholderClassName="bg-transparent"
+      />
     );
   }
-  if (variant === "loading") {
-    return <Spinner className="size-12" />;
+  if (variant === "success") {
+    return (
+      <AssetImage
+        src={assets.iconModalSuccess}
+        alt=""
+        width={38}
+        height={38}
+        placeholderClassName="bg-transparent"
+      />
+    );
   }
   return (
-    <div className="flex size-12 items-center justify-center rounded-full bg-dd-error text-xl font-bold text-white">
-      !
-    </div>
+    <AssetImage
+      src={assets.iconModalExclamation}
+      alt=""
+      width={38}
+      height={38}
+      placeholderClassName="bg-transparent"
+    />
   );
 }
 
@@ -51,28 +70,34 @@ export function Modal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/50"
         onClick={closeOnBackdrop ? onClose : undefined}
       />
       <div
-        className="relative z-10 w-[475px] overflow-hidden rounded-lg bg-white shadow-xl"
+        className="font-pretendard relative z-10 flex w-full max-w-[475px] flex-col overflow-hidden rounded-2xl shadow-xl"
+        style={{ width: layout.modalWidth }}
         role="dialog"
         aria-modal="true"
       >
-        <div className="bg-dd-black px-4 py-3 text-center text-sm font-medium text-white">
+        <div
+          className="flex shrink-0 items-center justify-center rounded-t-2xl bg-dd-black text-base font-medium tracking-[-0.176px] text-white"
+          style={{ height: layout.modalHeaderHeight }}
+        >
           {title}
         </div>
-        <div className="flex flex-col items-center gap-4 px-6 py-6 text-center">
-          <ModalIcon variant={variant} />
-          <div className="text-sm text-dd-black">{children}</div>
-        </div>
-        {actions && (
-          <div className="flex justify-center gap-3 border-t border-dd-gray-400 px-6 py-4">
-            {actions}
+        <div className="flex flex-col items-center justify-center gap-5 rounded-b-2xl border border-t-0 border-dd-gray-500 bg-white px-8 pb-8 pt-7">
+          <div className="flex flex-col items-center justify-center gap-2 text-center">
+            <ModalIcon variant={variant} />
+            <div className="text-base font-medium leading-[1.3] tracking-[-0.176px] text-dd-black">
+              {children}
+            </div>
           </div>
-        )}
+          {actions && (
+            <div className="flex justify-center gap-5">{actions}</div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -81,21 +106,30 @@ export function Modal({
 export function ModalButton({
   children,
   onClick,
-  variant = "primary",
+  variant = "outline",
+  disabled,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   variant?: "primary" | "danger" | "outline";
+  disabled?: boolean;
 }) {
+  // Figma 팝업 버튼: 모두 outline (흰 배경 + 회색 테두리)
+  // primary/danger도 동일 스타일로 맞춤
   const styles = {
-    primary: "bg-dd-black text-white",
-    danger: "bg-dd-error text-white",
-    outline: "border border-dd-gray-400 bg-white text-dd-black",
+    primary:
+      "border border-dd-gray-500 bg-white text-dd-black",
+    danger:
+      "border border-dd-gray-500 bg-white text-dd-black",
+    outline:
+      "border border-dd-gray-500 bg-white text-dd-black",
   };
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`rounded-[8px] px-5 py-2 text-sm font-medium ${styles[variant]}`}
+      disabled={disabled}
+      className={`flex h-[30px] w-[94px] shrink-0 items-center justify-center rounded px-5 text-sm font-medium tracking-[-0.154px] disabled:opacity-50 ${styles[variant]}`}
     >
       {children}
     </button>

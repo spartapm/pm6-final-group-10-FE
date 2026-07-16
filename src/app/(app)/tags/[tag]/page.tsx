@@ -1,8 +1,6 @@
-import { JobListPage } from "@/components/jobs/JobListPage";
+import { redirect } from "next/navigation";
 
-const VALID_TAGS = ["지원예정", "직무분석", "관심기업", "기타"];
-
-export default async function TagPage({
+export default async function LegacyTagPage({
   params,
 }: {
   params: Promise<{ tag: string }>;
@@ -10,11 +8,9 @@ export default async function TagPage({
   const { tag } = await params;
   const decoded = decodeURIComponent(tag);
 
-  if (!VALID_TAGS.includes(decoded)) {
-    return (
-      <div className="p-8 text-center text-gray-500">유효하지 않은 태그입니다.</div>
-    );
+  if (decoded === "기타") {
+    redirect("/folders/etc");
   }
 
-  return <JobListPage tag={decoded} />;
+  redirect("/all");
 }

@@ -1,118 +1,130 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import posthog from "posthog-js";
+import { useQuery } from "@tanstack/react-query";
 import { AssetImage } from "@/components/ui/AssetImage";
-import { assets } from "@/lib/assets";
-import { TAG_ROUTES } from "@/lib/constants";
-import { colors } from "@/lib/design-tokens";
 import { apiFetch } from "@/lib/api-client";
-import type { Profile } from "@/lib/types";
+import { assets } from "@/lib/assets";
+import type { Folder } from "@/lib/types";
+import { FolderEditModal } from "@/components/folders/FolderEditModal";
 
-function isNavActive(pathname: string, href: string, label: string) {
-  const path = decodeURIComponent(pathname).replace(/\/$/, "");
-  if (href === "/all") return path === "/all";
-  return path === href || path === `/tags/${label}`;
+function isAllActive(pathname: string) {
+  return pathname === "/all" || pathname === "/";
 }
 
-export function GNB() {
+function isEtcActive(pathname: string) {
+  return pathname === "/folders/etc";
+}
+
+function isFolderActive(pathname: string, folderId: string) {
+  return pathname === `/folders/${folderId}`;
+}
+
+function tabClass(active: boolean) {
+  return `flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition ${
+    active
+      ? "border-dd-black text-dd-black"
+      : "border-transparent text-dd-gray-500 hover:text-dd-black"
+  }`;
+}
+
+function TabIcon({ src, alt }: { src: string; alt: string }) {
+  return (
+    <AssetImage
+      src={src}
+      alt={alt}
+      width={20}
+      height={20}
+      className="shrink-0"
+      placeholderClassName="size-5 bg-transparent"
+    />
+  );
+}
+
+export function TabGNB() {
   const pathname = usePathname();
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [folderModalOpen, setFolderModalOpen] = useState(false);
 
-  useEffect(() => {
-    apiFetch<Profile>("/profile")
-      .then((data) => {
-        setProfile(data);
-        // 로그인 유저를 PostHog에 식별(distinct id = Supabase user.id)
-        if (posthog.__loaded && data?.id) {
-          posthog.identify(data.id, {
-            email: data.email,
-            nickname: data.nickname,
-          });
-        }
-      })
-      .catch(() => setProfile(null));
-  }, []);
+  const { data: folders = [] } = useQuery({
+    queryKey: ["folders"],
+    queryFn: () => apiFetch<Folder[]>("/folders"),
+  });
 
-  function handleNavClick(href: string, label: string) {
-    if (isNavActive(pathname, href, label)) {
-      router.refresh();
-    }
+  function handleNavClick(href: string, isActive: boolean) {
+    if (isActive) router.refresh();
+    else router.push(href);
   }
 
   return (
-    <nav className="sticky top-0 grid h-svh w-[92px] shrink-0 grid-rows-[1fr_auto] bg-dd-black text-white">
-      <div className="flex flex-col gap-px self-start pt-6">
-        {TAG_ROUTES.map(({ href, label }) => {
-          const active = isNavActive(pathname, href, label);
-          const isAll = href === "/all";
+    <>
+      <nav className="flex h-[53px] shrink-0 items-center justify-between border-b border-dd-gray-400 bg-white px-20">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => handleNavClick("/all", isAllActive(pathname))}
+            className={tabClass(isAllActive(pathname))}
+          >
+            <TabIcon src={assets.iconTabGrid} alt="" />
+            전체보기
+          </button>
 
-          if (isAll) {
+          {folders.map((folder) => {
+            const active = isFolderActive(pathname, folder.id);
             return (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => handleNavClick(href, label)}
-                className={`mx-3.5 mb-2.5 flex items-center justify-between gap-1 py-1 text-[12px] font-medium transition ${
-                  active
-                    ? "text-dd-yellow"
-                    : "text-white hover:opacity-80"
-                }`}
+              <button
+                key={folder.id}
+                type="button"
+                onClick={() =>
+                  handleNavClick(`/folders/${folder.id}`, active)
+                }
+                className={tabClass(active)}
               >
-                <AssetImage
-                  src={assets.iconGrid}
+                <TabIcon
+                  src={
+                    active ? assets.iconTabFolderOpen : assets.iconTabFolder
+                  }
                   alt=""
-                  width={17}
-                  height={17}
-                  placeholderClassName="bg-dd-gray-500"
                 />
-                <span className="leading-none">{label}</span>
-              </Link>
+                {folder.name}
+              </button>
             );
-          }
+          })}
 
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => handleNavClick(href, label)}
-              aria-current={active ? "page" : undefined}
-              className="flex min-h-[35px] w-full items-center justify-center px-2.5 py-2.5 text-[10px] font-medium tracking-[-0.11px] transition hover:bg-white/10"
-              style={
-                active
-                  ? { backgroundColor: colors.yellow, color: colors.black }
-                  : { color: colors.white }
+          <button
+            type="button"
+            onClick={() =>
+              handleNavClick("/folders/etc", isEtcActive(pathname))
+            }
+            className={tabClass(isEtcActive(pathname))}
+          >
+            <TabIcon
+              src={
+                isEtcActive(pathname)
+                  ? assets.iconTabFolderOpen
+                  : assets.iconTabFolder
               }
-            >
-              <span className="text-center leading-normal">{label}</span>
-            </Link>
-          );
-        })}
-      </div>
-
-      <Link
-        href="/settings"
-        className="mx-2 mb-2 flex flex-col items-center gap-1 rounded-bl-[20px] rounded-br-lg px-2 py-3 hover:bg-white/10"
-      >
-        <div className="flex size-8 items-center justify-center overflow-hidden rounded-full bg-white text-dd-black">
-          {profile?.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={profile.avatar_url}
-              alt="프로필"
-              className="size-full object-cover"
+              alt=""
             />
-          ) : (
-            <span className="text-[10px]">👤</span>
-          )}
+            기타
+          </button>
         </div>
-        <span className="max-w-full truncate text-[10px]">
-          {profile?.nickname ?? "프로필"}
-        </span>
-      </Link>
-    </nav>
+
+        <button
+          type="button"
+          onClick={() => setFolderModalOpen(true)}
+          className="font-pretendard flex items-center gap-2.5 text-sm text-dd-gray-500 hover:text-dd-black"
+        >
+          <TabIcon src={assets.iconFilterAlt} alt="" />
+          폴더 수정하기
+        </button>
+      </nav>
+
+      <FolderEditModal
+        open={folderModalOpen}
+        onClose={() => setFolderModalOpen(false)}
+      />
+    </>
   );
 }

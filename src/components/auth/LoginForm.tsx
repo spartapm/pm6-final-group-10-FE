@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AssetImage } from "@/components/ui/AssetImage";
 import { assets } from "@/lib/assets";
+import { CS_EMAIL } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import { enableDevSession, isSupabaseConfigured } from "@/lib/supabase/config";
 import { emailSchema, loginPasswordSchema } from "@/lib/validators";
@@ -21,7 +22,6 @@ export function LoginForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // 개발용 임시: 로그인 버튼만 누르면 통과
     if (DEV_SKIP_AUTH) {
       enableDevSession();
       router.push("/all");
@@ -82,7 +82,7 @@ export function LoginForm() {
     >
       <div className="absolute right-12 top-12">
         <AssetImage
-          src={assets.logoIcon}
+          src={assets.logoAuth}
           alt="딱풀"
           width={71}
           height={71}
@@ -93,6 +93,9 @@ export function LoginForm() {
       <p className="text-[36px] font-light leading-snug text-dd-black">
         딱 붙여두고, 딱 맞게 꺼내 쓰는{" "}
         <span className="font-semibold">딱풀!</span>
+      </p>
+      <p className="-mt-3 text-lg text-dd-black">
+        지금, 붙여두는 것부터 시작하세요!
       </p>
 
       <div>
@@ -111,7 +114,7 @@ export function LoginForm() {
       <div>
         <input
           type="password"
-          placeholder="6~12자를 입력하세요."
+          placeholder="비밀번호를 입력하세요."
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="h-[45px] w-full rounded-[12px] bg-dd-gray-100 px-4 text-sm outline-none"
@@ -139,6 +142,13 @@ export function LoginForm() {
       >
         회원가입
       </Link>
+
+      <p className="text-center text-xs text-dd-gray-500">
+        문의:{" "}
+        <a href={`mailto:${CS_EMAIL}`} className="underline">
+          {CS_EMAIL}
+        </a>
+      </p>
     </form>
   );
 }

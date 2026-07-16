@@ -1,8 +1,21 @@
-export function getDdayLabel(deadlineDate: string | null): {
+import type { DeadlineStatus } from "./types";
+
+export function getDdayLabel(
+  deadlineDate: string | null,
+  deadlineStatus?: DeadlineStatus
+): {
   label: string;
   urgent: boolean;
   expired: boolean;
 } {
+  if (deadlineStatus === "always_open") {
+    return { label: "상시채용", urgent: false, expired: false };
+  }
+
+  if (deadlineStatus === "closed") {
+    return { label: "마감", urgent: false, expired: true };
+  }
+
   if (!deadlineDate) {
     return { label: "", urgent: false, expired: false };
   }

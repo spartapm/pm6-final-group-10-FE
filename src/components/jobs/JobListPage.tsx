@@ -1,22 +1,28 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { AssetImage } from "@/components/ui/AssetImage";
 import { apiFetch, ApiError } from "@/lib/api-client";
-import type { JobPosting } from "@/lib/types";
-import { MainHeader } from "../layout/MainHeader";
+import { assets } from "@/lib/assets";
+import { keywordTexts } from "@/lib/keywords";
+import type { JobPosting, Profile } from "@/lib/types";
+import { HeaderArea } from "../layout/HeaderArea";
+import { TabGNB } from "../layout/GNB";
 import { FilterBar } from "./FilterBar";
 import { JobCard } from "./JobCard";
 import { JobDetailModal } from "../job-detail/JobDetailModal";
 import { Modal, ModalButton } from "../ui/Modal";
 import { Spinner } from "../ui/Spinner";
 import { getParseFailureMessage } from "@/lib/parseFailureMessage";
+import { OnboardingModal } from "../onboarding/OnboardingModal";
 
 interface JobListPageProps {
-  tag?: string;
+  folderId?: string;
+  uncategorized?: boolean;
 }
 
-export function JobListPage({ tag }: JobListPageProps) {
+export function JobListPage({ folderId, uncategorized }: JobListPageProps) {
   const queryClient = useQueryClient();
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [excludeExpired, setExcludeExpired] = useState(false);
@@ -26,14 +32,21 @@ export function JobListPage({ tag }: JobListPageProps) {
   const [deleteTarget, setDeleteTarget] = useState<JobPosting | null>(null);
   const [parseFailJob, setParseFailJob] = useState<JobPosting | null>(null);
   const [networkError, setNetworkError] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  const queryKey = ["jobs", tag, selectedKeywords, excludeExpired, sort];
+  const { data: profile } = useQuery({
+    queryKey: ["profile"],
+    queryFn: () => apiFetch<Profile>("/profile"),
+  });
+
+  const queryKey = ["jobs", folderId, uncategorized, selectedKeywords, excludeExpired, sort];
 
   const { data: jobs = [], isLoading } = useQuery({
     queryKey,
     queryFn: () => {
       const params = new URLSearchParams();
-      if (tag) params.set("tag", tag);
+      if (folderId) params.set("folderId", folderId);
+      if (uncategorized) params.set("uncategorized", "true");
       if (excludeExpired) params.set("excludeExpired", "true");
       params.set("sort", sort);
       selectedKeywords.forEach((k) => params.append("keywords", k));
@@ -42,10 +55,11 @@ export function JobListPage({ tag }: JobListPageProps) {
   });
 
   const { data: jobsForKeywords = [] } = useQuery({
-    queryKey: ["jobs", "keyword-source", tag, excludeExpired, sort],
+    queryKey: ["jobs", "keyword-source", folderId, uncategorized, excludeExpired, sort],
     queryFn: () => {
       const params = new URLSearchParams();
-      if (tag) params.set("tag", tag);
+      if (folderId) params.set("folderId", folderId);
+      if (uncategorized) params.set("uncategorized", "true");
       if (excludeExpired) params.set("excludeExpired", "true");
       params.set("sort", sort);
       return apiFetch<JobPosting[]>(`/jobs?${params.toString()}`);
@@ -63,21 +77,24 @@ export function JobListPage({ tag }: JobListPageProps) {
       if (kw.trim()) set.add(kw);
     }
     for (const job of jobsForKeywords) {
-      for (const kw of job.competency_keywords ?? []) {
-        if (typeof kw === "string" && kw.trim()) set.add(kw);
+      for (const kw of keywordTexts(job.competency_keywords)) {
+        if (kw.trim()) set.add(kw);
       }
     }
     return [...set].sort((a, b) => a.localeCompare(b, "ko"));
   }, [allKeywords, jobsForKeywords]);
 
   const handleParse = useCallback(
-    async (url: string) => {
+    async (url: string, selectedFolderId: string | null) => {
       setParseLoading(true);
       setNetworkError(false);
       try {
         const result = await apiFetch<{ job: JobPosting; parseResult: string }>(
           "/jobs/parse",
-          { method: "POST", body: JSON.stringify({ url }) }
+          {
+            method: "POST",
+            body: JSON.stringify({ url, folder_id: selectedFolderId }),
+          }
         );
         await queryClient.invalidateQueries({ queryKey: ["jobs"] });
         await queryClient.invalidateQueries({ queryKey: ["keywords"] });
@@ -107,13 +124,24 @@ export function JobListPage({ tag }: JobListPageProps) {
     if (selectedJob?.id === deleteTarget.id) setSelectedJob(null);
   }
 
+  useEffect(() => {
+    if (profile && !profile.onboarding_completed_at) {
+      setShowOnboarding(true);
+    }
+  }, [profile]);
+
+  const emptyMessage = uncategorized
+    ? "미분류 공고가 없어요."
+    : folderId
+      ? "이 폴더에 등록된 공고가 없어요."
+      : "첫 채용공고를 등록해 보세요!";
+
+  const showEmptyIllustration = !folderId && !uncategorized && jobs.length === 0;
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <MainHeader
-        onSubmit={handleParse}
-        loading={parseLoading}
-        variant={tag ? "tag" : "all"}
-      />
+      <HeaderArea onSubmit={handleParse} loading={parseLoading} />
+      <TabGNB />
 
       <FilterBar
         allKeywords={keywordOptions}
@@ -125,47 +153,34 @@ export function JobListPage({ tag }: JobListPageProps) {
         onSortChange={setSort}
       />
 
-      <div className="flex-1 overflow-y-auto px-10 py-6">
+      <div className="flex-1 overflow-y-auto bg-dd-gray-100 px-20 py-6">
         {isLoading ? (
           <div className="flex justify-center py-20">
             <Spinner />
           </div>
         ) : jobs.length === 0 ? (
-          <div className="relative flex flex-col items-center py-16">
-            <p className="text-lg font-medium text-dd-black">
-              {tag ? "이 탭에 등록된 공고가 없어요." : "첫 채용공고를 등록해 보세요!"}
-            </p>
-            {!tag && (
-              <div
-                className="absolute -top-4 right-[20%] hidden text-dd-gray-500 lg:block"
-                aria-hidden
-              >
-                <svg width="80" height="60" viewBox="0 0 80 60" fill="none">
-                  <path
-                    d="M10 50 Q40 10 70 5"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    fill="none"
-                    markerEnd="url(#arrow)"
-                  />
-                  <defs>
-                    <marker
-                      id="arrow"
-                      markerWidth="6"
-                      markerHeight="6"
-                      refX="5"
-                      refY="3"
-                      orient="auto"
-                    >
-                      <path d="M0,0 L6,3 L0,6" fill="currentColor" />
-                    </marker>
-                  </defs>
-                </svg>
-              </div>
-            )}
-          </div>
+          showEmptyIllustration ? (
+            // Figma 907:9030 — 전체보기 0건: 3단 가이드 일러스트만
+            <div className="flex justify-center">
+              <AssetImage
+                src={assets.listEmpty}
+                alt="사람인·잡코리아에서 URL을 복사해오세요. 저장하기 전 목적 태그로 분류하세요. 목적에 맞게 분류하고 조회하세요."
+                width={1042}
+                height={253}
+                className="h-auto w-full max-w-[1042px] object-contain"
+                placeholderClassName="h-[253px] w-full max-w-[1042px] rounded bg-dd-gray-200"
+                priority
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-24">
+              <p className="text-base font-medium text-dd-gray-500">
+                {emptyMessage}
+              </p>
+            </div>
+          )
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-[repeat(auto-fill,252px)] justify-start gap-3">
             {jobs.map((job) => (
               <JobCard
                 key={job.id}
@@ -204,10 +219,7 @@ export function JobListPage({ tag }: JobListPageProps) {
             >
               진행하기
             </ModalButton>
-            <ModalButton
-              variant="outline"
-              onClick={() => setParseFailJob(null)}
-            >
+            <ModalButton variant="outline" onClick={() => setParseFailJob(null)}>
               취소
             </ModalButton>
           </>
@@ -221,7 +233,7 @@ export function JobListPage({ tag }: JobListPageProps) {
 
       <Modal
         open={!!deleteTarget}
-        title="삭제 안내"
+        title="안내"
         onClose={() => setDeleteTarget(null)}
         variant="confirm-delete"
         actions={
@@ -229,10 +241,7 @@ export function JobListPage({ tag }: JobListPageProps) {
             <ModalButton variant="danger" onClick={confirmDelete}>
               삭제하기
             </ModalButton>
-            <ModalButton
-              variant="outline"
-              onClick={() => setDeleteTarget(null)}
-            >
+            <ModalButton variant="outline" onClick={() => setDeleteTarget(null)}>
               취소
             </ModalButton>
           </>
@@ -247,10 +256,7 @@ export function JobListPage({ tag }: JobListPageProps) {
         onClose={() => setNetworkError(false)}
         variant="error"
         actions={
-          <ModalButton
-            variant="outline"
-            onClick={() => setNetworkError(false)}
-          >
+          <ModalButton variant="outline" onClick={() => setNetworkError(false)}>
             닫기
           </ModalButton>
         }
@@ -273,6 +279,14 @@ export function JobListPage({ tag }: JobListPageProps) {
           }}
         />
       )}
+
+      <OnboardingModal
+        open={showOnboarding}
+        onComplete={() => {
+          setShowOnboarding(false);
+          queryClient.invalidateQueries({ queryKey: ["profile"] });
+        }}
+      />
     </div>
   );
 }

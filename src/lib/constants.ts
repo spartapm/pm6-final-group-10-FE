@@ -1,20 +1,15 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
-export const PURPOSE_TAGS = [
-  { value: "지원예정", label: "지원예정", bg: "#32A287", text: "#FFFFFF" },
-  { value: "직무분석", label: "직무분석", bg: "#A9FDAC", text: "#18181B" },
-  { value: "관심기업", label: "관심기업", bg: "#F1FFE7", text: "#18181B" },
-  { value: "기타", label: "기타", bg: "#95959C", text: "#FFFFFF" },
-] as const;
+export const CS_EMAIL = "choigudahm@gmail.com";
 
-export const TAG_ROUTES = [
-  { href: "/all", label: "전체보기" },
-  { href: "/tags/지원예정", label: "지원예정" },
-  { href: "/tags/직무분석", label: "직무분석" },
-  { href: "/tags/관심기업", label: "관심기업" },
-  { href: "/tags/기타", label: "기타" },
-] as const;
+export const FOLDER_SLOT_COLORS: Record<number, { bg: string; text: string }> = {
+  1: { bg: "#63CCCA", text: "#18181B" },
+  2: { bg: "#32A287", text: "#FFFFFF" },
+  3: { bg: "#82D173", text: "#18181B" },
+  4: { bg: "#94E8B4", text: "#18181B" },
+  5: { bg: "#397367", text: "#FFFFFF" },
+};
 
 export const SORT_OPTIONS = [
   { value: "saved_at_desc", label: "저장일 내림차순" },
@@ -25,4 +20,4 @@ export const SORT_OPTIONS = [
   { value: "deadline_desc", label: "마감일 내림차순" },
 ] as const;
 
-export type PurposeTag = (typeof PURPOSE_TAGS)[number]["value"];
+export const KEYWORD_SECTIONS = ["자격요건", "우대사항", "기타"] as const;

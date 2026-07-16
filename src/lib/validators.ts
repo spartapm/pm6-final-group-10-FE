@@ -8,16 +8,14 @@ export const emailSchema = z
 export const loginPasswordSchema = z
   .string()
   .min(1, "비밀번호를 입력해주세요.")
-  .min(6, "비밀번호는 6~12자로 입력해주세요.")
-  .max(12, "비밀번호는 6~12자로 입력해주세요.");
+  .min(6, "비밀번호는 6자 이상 입력해주세요.");
 
 export const signupPasswordSchema = z
   .string()
   .min(1, "*비밀번호를 입력해주세요.")
   .min(6, "*비밀번호 형식이 올바르지 않습니다.")
-  .max(12, "*비밀번호 형식이 올바르지 않습니다.")
   .regex(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/,
+    /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/,
     "*비밀번호 형식이 올바르지 않습니다."
   );
 

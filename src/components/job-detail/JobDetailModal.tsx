@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { getDdayLabel } from "@/lib/dday";
-import { PURPOSE_TAGS } from "@/lib/constants";
+import { FOLDER_SLOT_COLORS } from "@/lib/constants";
 import { layout } from "@/lib/design-tokens";
-import type { JobPosting } from "@/lib/types";
+import type { Folder, JobPosting, StructuredKeyword } from "@/lib/types";
 import { InsightTab } from "./InsightTab";
 import { OriginalTab } from "./OriginalTab";
 import { MemoTab } from "./MemoTab";
 import { Modal, ModalButton } from "../ui/Modal";
+import { Toast } from "../ui/Toast";
+import { AssetImage } from "../ui/AssetImage";
+import { assets } from "@/lib/assets";
 
 interface JobDetailModalProps {
   job: JobPosting;
@@ -21,7 +25,7 @@ interface JobDetailModalProps {
 type Tab = "insight" | "original" | "memo";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "insight", label: "인사이트" },
+  { id: "insight", label: "요약" },
   { id: "original", label: "원문" },
   { id: "memo", label: "메모" },
 ];
@@ -36,11 +40,17 @@ export function JobDetailModal({
   const [form, setForm] = useState<JobPosting>(job);
   const [dirty, setDirty] = useState(false);
   const [showLeave, setShowLeave] = useState(false);
-  const [showSave, setShowSave] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [saveError, setSaveError] = useState(false);
-  const [tagOpen, setTagOpen] = useState(false);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [folderOpen, setFolderOpen] = useState(false);
   const [currentJob, setCurrentJob] = useState(job);
+  const keywordApplyRef = useRef<(() => StructuredKeyword[] | null) | null>(null);
+
+  const { data: folders = [] } = useQuery({
+    queryKey: ["folders"],
+    queryFn: () => apiFetch<Folder[]>("/folders"),
+  });
 
   useEffect(() => {
     setForm(job);
@@ -48,36 +58,52 @@ export function JobDetailModal({
     setDirty(false);
   }, [job]);
 
+  const registerKeywordApply = useCallback(
+    (fn: () => StructuredKeyword[] | null) => {
+      keywordApplyRef.current = fn;
+    },
+    []
+  );
+
   function updateForm(updates: Partial<JobPosting>) {
     setForm((prev) => ({ ...prev, ...updates }));
     setDirty(true);
   }
 
   async function handleSave() {
+    let formToSave = { ...form };
+    const appliedKeywords = keywordApplyRef.current?.();
+    if (appliedKeywords) {
+      formToSave = { ...formToSave, competency_keywords: appliedKeywords };
+      setForm(formToSave);
+    }
+
     try {
       const updated = await apiFetch<JobPosting>(`/jobs/${job.id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          purpose_tag: form.purpose_tag,
-          company_name: form.company_name,
-          job_title: form.job_title,
-          recruitment_field: form.recruitment_field,
-          job_description: form.job_description,
-          qualifications: form.qualifications,
-          preferences: form.preferences,
-          industry: form.industry,
-          deadline_raw: form.deadline_raw,
-          deadline_date: form.deadline_date,
-          required_documents: form.required_documents,
-          application_method: form.application_method,
-          raw_text: form.raw_text,
-          memo: form.memo,
-          competency_keywords: form.competency_keywords,
+          folder_id: formToSave.folder_id,
+          company_name: formToSave.company_name,
+          job_title: formToSave.job_title,
+          recruitment_field: formToSave.recruitment_field,
+          job_description: formToSave.job_description,
+          qualifications: formToSave.qualifications,
+          preferences: formToSave.preferences,
+          industry: formToSave.industry,
+          deadline_raw: formToSave.deadline_raw,
+          deadline_date: formToSave.deadline_date,
+          deadline_status: formToSave.deadline_status,
+          required_documents: formToSave.required_documents,
+          application_method: formToSave.application_method,
+          raw_text: formToSave.raw_text,
+          memo: formToSave.memo,
+          competency_keywords: formToSave.competency_keywords,
         }),
       });
       setDirty(false);
       onUpdated(updated);
-      setShowSave(true);
+      setToastOpen(true);
+      onClose();
     } catch (err) {
       if (err instanceof ApiError) setSaveError(true);
     }
@@ -97,82 +123,107 @@ export function JobDetailModal({
     onClose();
   }
 
-  const dday = getDdayLabel(form.deadline_date);
-  const tagStyle = PURPOSE_TAGS.find((t) => t.value === form.purpose_tag);
+  const dday = getDdayLabel(form.deadline_date, form.deadline_status);
+  const folder = folders.find((f) => f.id === form.folder_id);
   const displayTitle =
     form.recruitment_field || form.job_title || "모집 분야 미정";
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/50" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4">
+        <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
         <div
-          className="relative z-10 flex flex-col overflow-hidden rounded-lg bg-white shadow-xl"
+          className="font-pretendard relative z-10 flex w-full max-w-[1152px] flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
           style={{
-            width: layout.detailModalWidth,
-            height: layout.detailModalHeight,
-            maxHeight: layout.detailModalHeight,
+            height: `min(${layout.detailModalHeight}px, calc(100dvh - 1rem))`,
           }}
         >
-          <div className="flex h-10 shrink-0 items-center justify-end px-4">
+          {/* 상단 블랙 바 + 닫기 */}
+          <div className="flex h-[41px] shrink-0 items-center justify-end bg-dd-black px-5">
             <button
+              type="button"
               onClick={handleClose}
-              className="text-lg text-dd-gray-500 hover:text-dd-black"
+              className="flex size-[23px] items-center justify-center"
               aria-label="닫기"
             >
-              ✕
+              <AssetImage
+                src={assets.iconDetailClose}
+                alt=""
+                width={23}
+                height={23}
+                placeholderClassName="bg-transparent"
+              />
             </button>
           </div>
 
-          <div className="relative shrink-0 px-9 pb-3">
-            <div className="relative mb-2 w-fit">
-              <button
-                type="button"
-                onClick={() => setTagOpen(!tagOpen)}
-                className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-white"
-                style={{
-                  backgroundColor: tagStyle?.bg ?? "#19B469",
-                  color: tagStyle?.text ?? "#FFFFFF",
-                }}
-              >
-                {form.purpose_tag ?? "저장 목적을 선택하세요"}
-                <span className="text-[10px] leading-none">▾</span>
-              </button>
-              {tagOpen && (
-                <div className="absolute left-0 top-full z-20 mt-1 min-w-[140px] rounded border border-dd-gray-400 bg-white shadow">
-                  {[
-                    ...PURPOSE_TAGS.map((t) => ({
-                      value: t.value,
-                      label: t.label,
-                    })),
-                    { value: null as string | null, label: "태그 해제" },
-                  ].map((t) => (
-                    <button
-                      key={t.label}
-                      type="button"
-                      onClick={() => {
-                        updateForm({ purpose_tag: t.value });
-                        setTagOpen(false);
-                      }}
-                      className="block w-full px-4 py-2 text-left text-sm hover:bg-dd-gray-100"
-                    >
-                      {t.label}
-                    </button>
-                  ))}
+          {/* 제목 / 폴더 / D-day */}
+          <div className="relative flex shrink-0 items-start justify-between gap-2 overflow-visible px-[18px] pb-[15px] pt-[9px] md:items-center md:px-9 md:py-[15px]">
+            <div className="min-w-0 flex-1">
+              {/* 모바일: 폴더→제목 / 데스크톱: 제목 옆(자리 없으면 위) */}
+              <div className="flex flex-col items-start gap-[5px] md:flex-row md:flex-wrap-reverse md:items-center md:gap-3">
+                <h2 className="order-2 max-w-full text-[20px] font-extrabold leading-[1.5] tracking-[-0.22px] text-dd-black md:order-none md:text-[30px] md:tracking-[-0.33px]">
+                  {displayTitle}
+                </h2>
+                <div className="relative order-1 shrink-0 md:order-none">
+                  <button
+                    type="button"
+                    onClick={() => setFolderOpen(!folderOpen)}
+                    className="flex items-center gap-2 rounded-full bg-dd-primary-green px-2.5 py-1.5 text-[10px] font-semibold tracking-[-0.11px] text-white md:px-[21px] md:text-base md:tracking-[-0.176px]"
+                  >
+                    {folder?.name ?? "저장 목적을 선택하세요"}
+                    <AssetImage
+                      src={assets.iconDetailChevron}
+                      alt=""
+                      width={9}
+                      height={5}
+                      placeholderClassName="bg-transparent"
+                    />
+                  </button>
+                  {folderOpen && (
+                    <div className="absolute left-0 top-full z-20 mt-1 min-w-[180px] overflow-hidden rounded-xl border border-dd-gray-400 bg-white shadow-lg">
+                      {folders.map((f) => {
+                        const color =
+                          FOLDER_SLOT_COLORS[f.slot] ?? FOLDER_SLOT_COLORS[1];
+                        return (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={() => {
+                              updateForm({ folder_id: f.id });
+                              setFolderOpen(false);
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-dd-gray-100"
+                          >
+                            <span
+                              className="size-2 shrink-0 rounded-full"
+                              style={{ backgroundColor: color.bg }}
+                            />
+                            {f.name}
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateForm({ folder_id: null });
+                          setFolderOpen(false);
+                        }}
+                        className="block w-full border-t border-dd-gray-200 px-4 py-2.5 text-left text-sm text-dd-gray-500 hover:bg-dd-gray-100"
+                      >
+                        미분류
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+              <p className="mt-0.5 text-sm tracking-[-0.154px] text-dd-black">
+                {form.company_name || "기업명 없음"}
+              </p>
             </div>
-
-            <h2 className="text-[26px] font-semibold leading-tight text-dd-black">
-              {displayTitle}
-            </h2>
-            <p className="mt-0.5 text-sm text-dd-gray-500">
-              {form.company_name || "기업명 없음"}
-            </p>
 
             {dday.label && (
               <span
-                className={`absolute right-9 top-6 text-xl font-semibold ${
+                className={`shrink-0 self-center text-[30px] font-semibold leading-[1.5] tracking-[-0.33px] md:pl-4 md:text-[36px] md:tracking-[-0.396px] ${
                   dday.urgent
                     ? "text-dd-error"
                     : dday.expired
@@ -180,21 +231,22 @@ export function JobDetailModal({
                       : "text-dd-black"
                 }`}
               >
-                {dday.expired ? "마감된 공고" : dday.label}
+                {dday.label}
               </span>
             )}
           </div>
 
-          <div className="flex shrink-0 gap-2 px-9 pb-3">
+          {/* 탭 */}
+          <div className="flex shrink-0 items-end justify-center bg-white px-[18px] md:justify-start md:px-9">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
-                className={`rounded-full px-5 py-1.5 text-xs font-medium transition ${
+                className={`px-6 py-1.5 text-sm font-medium text-white transition ${
                   tab === t.id
-                    ? "bg-dd-black text-white"
-                    : "bg-dd-gray-100 text-dd-gray-500"
+                    ? "rounded-t-lg bg-dd-black"
+                    : "rounded-t-lg bg-dd-gray-500"
                 }`}
               >
                 {t.label}
@@ -202,9 +254,14 @@ export function JobDetailModal({
             ))}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden px-9 pb-3">
+          {/* 콘텐츠 */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {tab === "insight" && (
-              <InsightTab form={form} onChange={updateForm} />
+              <InsightTab
+                form={form}
+                onChange={updateForm}
+                onRegisterKeywordApply={registerKeywordApply}
+              />
             )}
             {tab === "original" && (
               <OriginalTab
@@ -222,32 +279,34 @@ export function JobDetailModal({
             {tab === "memo" && <MemoTab form={form} onChange={updateForm} />}
           </div>
 
-          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-dd-gray-400 px-9 py-4">
+          {/* 하단 — 모바일: 세로 스택 / 데스크톱: 가로 */}
+          <div className="flex shrink-0 flex-col gap-3 px-[21px] py-4 md:h-[66px] md:flex-row md:items-center md:justify-between md:gap-0 md:py-0">
             {form.source_url ? (
               <a
                 href={form.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-full border border-dd-black bg-white px-6 py-2 text-sm font-medium text-dd-black"
+                className="flex w-full items-center justify-center rounded-full border border-dd-black bg-white px-[31px] py-2 text-sm font-semibold tracking-[-0.154px] text-dd-black md:w-auto"
               >
                 원본 공고 보러가기
               </a>
             ) : (
-              <span />
+              <span className="hidden md:block" />
             )}
 
-            <div className="flex gap-3">
+            <div className="flex w-full items-center justify-between gap-[5px] md:w-auto md:justify-end">
               <button
                 type="button"
                 onClick={() => setShowDelete(true)}
-                className="rounded-lg bg-dd-black px-6 py-2 text-sm font-medium text-white"
+                className="rounded-full bg-dd-black px-[31px] py-2 text-sm font-semibold tracking-[-0.154px] text-white"
               >
                 삭제
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                className="rounded-lg bg-dd-green px-6 py-2 text-sm font-medium text-white"
+                disabled={!dirty}
+                className="rounded-full bg-dd-primary-green px-5 py-2 text-sm font-semibold tracking-[-0.154px] text-white disabled:bg-dd-gray-500"
               >
                 저장하기
               </button>
@@ -256,19 +315,11 @@ export function JobDetailModal({
         </div>
       </div>
 
-      <Modal
-        open={showSave}
-        title="안내"
-        variant="success"
-        onClose={() => setShowSave(false)}
-        actions={
-          <ModalButton variant="outline" onClick={() => setShowSave(false)}>
-            닫기
-          </ModalButton>
-        }
-      >
-        <p>저장이 완료되었습니다.</p>
-      </Modal>
+      <Toast
+        message="저장이 완료되었어요!"
+        open={toastOpen}
+        onClose={() => setToastOpen(false)}
+      />
 
       <Modal
         open={saveError}
@@ -313,7 +364,7 @@ export function JobDetailModal({
 
       <Modal
         open={showDelete}
-        title="삭제 안내"
+        title="안내"
         onClose={() => setShowDelete(false)}
         variant="confirm-delete"
         actions={

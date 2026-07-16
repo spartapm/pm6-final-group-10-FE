@@ -1,23 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { getDdayLabel } from "@/lib/dday";
-import { PURPOSE_TAGS } from "@/lib/constants";
-import type { JobPosting } from "@/lib/types";
+import { FOLDER_SLOT_COLORS } from "@/lib/constants";
+import {
+  keywordsForCardDisplay,
+} from "@/lib/keywords";
+import { apiFetch } from "@/lib/api-client";
+import { assets } from "@/lib/assets";
+import type { Folder, JobPosting } from "@/lib/types";
+import { AssetImage } from "@/components/ui/AssetImage";
 
 interface JobCardProps {
   job: JobPosting;
   onOpen: (job: JobPosting) => void;
   onDelete: (job: JobPosting) => void;
   selectedKeywords?: string[];
-}
-
-// 한글 → 영문 순으로 오름차순 정렬 (JD-C05)
-function koThenEnCompare(a: string, b: string): number {
-  const aKo = /^[가-힣]/.test(a);
-  const bKo = /^[가-힣]/.test(b);
-  if (aKo !== bKo) return aKo ? -1 : 1;
-  return a.localeCompare(b, "ko", { sensitivity: "base" });
 }
 
 export function JobCard({
@@ -27,101 +26,128 @@ export function JobCard({
   selectedKeywords = [],
 }: JobCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const dday = getDdayLabel(job.deadline_date);
-  const tagStyle = PURPOSE_TAGS.find((t) => t.value === job.purpose_tag);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const dday = getDdayLabel(job.deadline_date, job.deadline_status);
 
-  // 필터로 선택된 키워드를 앞으로 재배열하고(각각 한글→영문 정렬),
-  // 선택된 키워드는 색상으로 강조한다. (JD-F05 / JD-C05)
+  const { data: folders = [] } = useQuery({
+    queryKey: ["folders"],
+    queryFn: () => apiFetch<Folder[]>("/folders"),
+  });
+
+  const folder = folders.find((f) => f.id === job.folder_id);
+  const folderColor = folder
+    ? FOLDER_SLOT_COLORS[folder.slot] ?? FOLDER_SLOT_COLORS[1]
+    : null;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
+
   const selectedSet = new Set(selectedKeywords);
-  const allKeywords = job.competency_keywords ?? [];
-  const selected = allKeywords
-    .filter((kw) => selectedSet.has(kw))
-    .sort(koThenEnCompare);
-  const rest = allKeywords
-    .filter((kw) => !selectedSet.has(kw))
-    .sort(koThenEnCompare);
-  const keywords = [...selected, ...rest];
+  const keywords = keywordsForCardDisplay(
+    job.competency_keywords ?? [],
+    selectedKeywords
+  );
 
   return (
     <div
-      className="relative flex h-full flex-col cursor-pointer rounded-lg border border-dd-gray-400 bg-white p-4 transition hover:shadow-md"
+      className="font-pretendard relative flex h-[192px] w-[252px] cursor-pointer flex-col rounded-2xl border border-dd-gray-400 bg-white p-4 shadow-sm transition hover:shadow-md"
       onClick={() => onOpen(job)}
     >
-      <button
-        className="absolute right-3 top-3 text-lg text-dd-gray-500 hover:text-dd-black"
-        onClick={(e) => {
-          e.stopPropagation();
-          setMenuOpen(!menuOpen);
-        }}
-        aria-label="더보기"
-      >
-        ···
-      </button>
-
-      {menuOpen && (
-        <div
-          className="absolute right-3 top-10 z-10 rounded border border-dd-gray-400 bg-white shadow"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            className="block w-full px-4 py-2 text-left text-sm text-dd-error hover:bg-dd-gray-100"
-            onClick={() => {
-              setMenuOpen(false);
-              onDelete(job);
-            }}
-          >
-            삭제
-          </button>
-        </div>
-      )}
-
-      <div className="shrink-0 pr-8">
-        <p className="line-clamp-1 text-xs text-dd-gray-500">
-          {job.company_name || "기업명 없음"}
+      <div ref={menuRef} className="flex shrink-0 items-start justify-between">
+        <p className="line-clamp-1 pr-2 text-[10px] leading-none text-dd-gray-500">
+          {job.company_name || "기업 이름"}
         </p>
-        <h3 className="mt-1 line-clamp-2 min-h-10 text-base font-bold leading-snug text-dd-black">
-          {job.recruitment_field || job.job_title || "모집 분야 미정"}
-        </h3>
+        <button
+          type="button"
+          className="shrink-0 text-dd-gray-500 hover:text-dd-black"
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuOpen(!menuOpen);
+          }}
+          aria-label="더보기"
+        >
+          <AssetImage
+            src={assets.iconMoreHoriz}
+            alt=""
+            width={20}
+            height={20}
+            placeholderClassName="bg-transparent"
+          />
+        </button>
+
+        {menuOpen && (
+          <div
+            className="absolute right-4 top-10 z-10 rounded-lg border border-dd-gray-400 bg-white shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="block w-full px-4 py-2 text-left text-sm text-dd-error hover:bg-dd-gray-100"
+              onClick={() => {
+                setMenuOpen(false);
+                onDelete(job);
+              }}
+            >
+              삭제
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="mt-3 shrink-0">
-        <p className="text-xs font-medium text-dd-black">핵심역량</p>
-        <div className="mt-1 flex h-11 flex-wrap content-start items-start gap-1 overflow-hidden">
-          {keywords.map((kw) => {
+      <h3 className="mt-2 line-clamp-1 text-base font-bold leading-tight text-dd-black">
+        {job.recruitment_field || job.job_title || "모집 분야"}
+      </h3>
+
+      <p className="mt-3 text-xs font-semibold leading-none text-dd-black">
+        핵심역량
+      </p>
+
+      <div className="mt-1.5 flex h-11 shrink-0 flex-wrap content-start gap-1 overflow-hidden">
+        {keywords.length === 0 ? (
+          <span className="text-[10px] text-dd-gray-500">키워드 없음</span>
+        ) : (
+          keywords.map((kw) => {
             const isSelected = selectedSet.has(kw);
             return (
               <span
                 key={kw}
-                className="shrink-0 whitespace-nowrap rounded border px-2 py-0.5 text-xs leading-none"
-                style={{
-                  backgroundColor: isSelected ? "#18181B" : "#FFFFFF",
-                  color: isSelected ? "#FFFFFF" : "#18181B",
-                  borderColor: isSelected ? "#18181B" : "#D4D4D8",
-                }}
+                className={`inline-flex h-5 max-w-full shrink-0 items-center rounded-full border px-2 text-[10px] leading-none ${
+                  isSelected
+                    ? "border-dd-black bg-dd-black font-medium text-white"
+                    : "border-dd-gray-400 bg-white text-dd-black"
+                }`}
               >
-                {kw}
+                <span className="truncate">{kw}</span>
               </span>
             );
-          })}
-        </div>
+          })
+        )}
       </div>
 
-      <div className="flex-1" aria-hidden />
+      <div className="min-h-2 flex-1" aria-hidden />
 
-      <div className="flex shrink-0 items-center justify-between pt-3">
-        {tagStyle && job.purpose_tag ? (
+      <div className="mt-2 flex shrink-0 items-end justify-between">
+        {folder && folderColor ? (
           <span
-            className="rounded px-2 py-0.5 text-xs font-medium"
-            style={{ backgroundColor: tagStyle.bg, color: tagStyle.text }}
+            className="inline-flex h-5 items-center rounded-full px-2.5 text-[10px] font-semibold leading-none"
+            style={{ backgroundColor: folderColor.bg, color: folderColor.text }}
           >
-            {job.purpose_tag}
+            {folder.name}
           </span>
         ) : (
           <span />
         )}
         {dday.label && (
           <span
-            className={`text-sm font-medium ${
+            className={`text-sm font-bold leading-none ${
               dday.expired
                 ? "text-dd-gray-500"
                 : dday.urgent
@@ -129,7 +155,7 @@ export function JobCard({
                   : "text-dd-black"
             }`}
           >
-            {dday.expired ? "마감된 공고" : dday.label}
+            {dday.label}
           </span>
         )}
       </div>
