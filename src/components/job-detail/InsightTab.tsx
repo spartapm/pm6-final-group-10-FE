@@ -150,11 +150,9 @@ function InfoRow({
 
 function DeadlineChecks({
   deadlineStatus,
-  onChange,
   onStatusChange,
 }: {
   deadlineStatus: JobPosting["deadline_status"];
-  onChange: (iso: string | null) => void;
   onStatusChange: (status: JobPosting["deadline_status"]) => void;
 }) {
   return (
@@ -164,12 +162,8 @@ function DeadlineChecks({
           type="checkbox"
           checked={deadlineStatus === "always_open"}
           onChange={(e) => {
-            if (e.target.checked) {
-              onStatusChange("always_open");
-              onChange(null);
-            } else {
-              onStatusChange(null);
-            }
+            // OR 선택: 체크 시 상대 해제, 해제 시 null. 날짜 값은 유지.
+            onStatusChange(e.target.checked ? "always_open" : null);
           }}
           className="size-5 accent-dd-black"
         />
@@ -180,12 +174,7 @@ function DeadlineChecks({
           type="checkbox"
           checked={deadlineStatus === "closed"}
           onChange={(e) => {
-            if (e.target.checked) {
-              onStatusChange("closed");
-              onChange(null);
-            } else {
-              onStatusChange(null);
-            }
+            onStatusChange(e.target.checked ? "closed" : null);
           }}
           className="size-5 accent-dd-black"
         />
@@ -234,42 +223,32 @@ function DeadlineRow({
     !yymmddToIso(text);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <span
-          className={`${INFO_LABEL_WIDTH} shrink-0 text-sm font-semibold tracking-[-0.154px] text-dd-black`}
-        >
-          {label}
-        </span>
-        <div className="min-w-0 flex-1">
-          <input
-            type="text"
-            inputMode="numeric"
-            value={text}
-            onChange={(e) => handleChange(e.target.value)}
-            placeholder="YY-MM-DD"
-            maxLength={8}
-            disabled={dateDisabled}
-            className="w-full bg-white px-1.5 py-0.5 text-sm tracking-[-0.154px] text-dd-black outline-none placeholder:text-dd-gray-500 disabled:opacity-60"
-          />
-          {invalid && (
-            <p className="mt-0.5 text-[10px] text-dd-error">
-              yy-mm-dd 형식으로 입력해 주세요.
-            </p>
-          )}
-        </div>
-        <div className="hidden shrink-0 items-center gap-2 md:flex">
-          <DeadlineChecks
-            deadlineStatus={deadlineStatus}
-            onChange={onChange}
-            onStatusChange={onStatusChange}
-          />
-        </div>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+      <span
+        className={`${INFO_LABEL_WIDTH} shrink-0 text-sm font-semibold tracking-[-0.154px] text-dd-black`}
+      >
+        {label}
+      </span>
+      <div className="min-w-0 flex-1 basis-[140px]">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={text}
+          onChange={(e) => handleChange(e.target.value)}
+          placeholder="YY-MM-DD"
+          maxLength={8}
+          disabled={dateDisabled}
+          className="w-full bg-white px-1.5 py-0.5 text-sm tracking-[-0.154px] text-dd-black outline-none placeholder:text-dd-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
+        />
+        {invalid && (
+          <p className="mt-0.5 text-[10px] text-dd-error">
+            yy-mm-dd 형식으로 입력해 주세요.
+          </p>
+        )}
       </div>
-      <div className="flex items-center gap-2 pl-[84px] md:hidden">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         <DeadlineChecks
           deadlineStatus={deadlineStatus}
-          onChange={onChange}
           onStatusChange={onStatusChange}
         />
       </div>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { getDdayLabel } from "@/lib/dday";
+import { deriveDeadlineStatus } from "@/lib/deadlineStatus";
 import { FOLDER_SLOT_COLORS } from "@/lib/constants";
 import { layout } from "@/lib/design-tokens";
 import type { Folder, JobPosting, StructuredKeyword } from "@/lib/types";
@@ -30,6 +31,16 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "memo", label: "메모" },
 ];
 
+function withDerivedDeadline(job: JobPosting): JobPosting {
+  const deadline_status = deriveDeadlineStatus(
+    job.deadline_raw,
+    job.deadline_date,
+    job.deadline_status
+  );
+  if (deadline_status === job.deadline_status) return job;
+  return { ...job, deadline_status };
+}
+
 export function JobDetailModal({
   job,
   onClose,
@@ -37,7 +48,7 @@ export function JobDetailModal({
   onDeleted,
 }: JobDetailModalProps) {
   const [tab, setTab] = useState<Tab>("insight");
-  const [form, setForm] = useState<JobPosting>(job);
+  const [form, setForm] = useState<JobPosting>(() => withDerivedDeadline(job));
   const [dirty, setDirty] = useState(false);
   const [showLeave, setShowLeave] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -53,7 +64,7 @@ export function JobDetailModal({
   });
 
   useEffect(() => {
-    setForm(job);
+    setForm(withDerivedDeadline(job));
     setCurrentJob(job);
     setDirty(false);
   }, [job]);
