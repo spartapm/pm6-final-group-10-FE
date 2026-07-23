@@ -44,40 +44,46 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
-      <div className="flex h-[480px] w-full max-w-[400px] flex-col overflow-hidden rounded-[30px] bg-white shadow-xl">
+      <div className="flex w-full max-w-[400px] flex-col overflow-hidden rounded-[30px] bg-white shadow-xl">
         <AssetImage
           src={assets.onboarding[step] ?? assets.onboarding[0]}
           alt=""
           width={400}
-          height={270}
-          className="h-[270px] w-full shrink-0 object-cover"
-          placeholderClassName="h-[270px] w-full bg-dd-gray-200"
+          height={280}
+          className="h-[280px] w-full shrink-0 object-cover"
+          placeholderClassName="h-[280px] w-full bg-dd-gray-200"
         />
 
-        <div className="flex min-h-0 flex-1 flex-col px-8 pb-8 pt-4">
-          <h2 className="whitespace-pre-line text-xl font-bold leading-snug text-dd-black">
+        <div className="flex shrink-0 justify-center gap-2 py-3">
+          {SLIDES.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setStep(i)}
+              aria-label={`${i + 1}번째 슬라이드`}
+              aria-current={i === step ? "true" : undefined}
+              className="flex h-5 items-center justify-center px-0.5"
+            >
+              <span
+                className={`block h-1 w-[30px] rounded-sm transition ${
+                  i === step
+                    ? "bg-dd-primary-green"
+                    : "bg-dd-gray-200 hover:bg-dd-gray-400"
+                }`}
+              />
+            </button>
+          ))}
+        </div>
+
+        <div className="flex shrink-0 flex-col px-8 pb-6 pt-1">
+          <h2 className="whitespace-pre-line text-lg font-bold leading-snug text-dd-black">
             {slide.title}
           </h2>
-          <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-dd-gray-500">
+          <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-dd-gray-500">
             {slide.desc}
           </p>
 
-          <div className="mt-4 flex justify-center gap-2">
-            {SLIDES.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setStep(i)}
-                aria-label={`${i + 1}번째 슬라이드`}
-                aria-current={i === step}
-                className={`h-1 w-[30px] rounded-sm transition ${
-                  i === step ? "bg-dd-black" : "bg-dd-gray-400 hover:bg-dd-gray-500"
-                }`}
-              />
-            ))}
-          </div>
-
-          <div className="mt-6 flex gap-2">
+          <div className="mt-3 flex gap-2">
             {!isLast && (
               <button
                 type="button"
