@@ -30,7 +30,7 @@ export function getDdayLabel(
   );
 
   if (diff < 0) {
-    return { label: "마감된 공고", urgent: false, expired: true };
+    return { label: "마감", urgent: false, expired: true };
   }
 
   if (diff === 0) {

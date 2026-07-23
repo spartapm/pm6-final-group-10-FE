@@ -27,7 +27,7 @@ export function Toast({
 
   return (
     <div className="pointer-events-none fixed bottom-8 left-1/2 z-[100] -translate-x-1/2">
-      <div className="font-pretendard flex items-center justify-center gap-1.5 rounded-[30px] bg-dd-black px-4 py-3 shadow-lg">
+      <div className="font-pretendard flex h-12 items-center justify-center gap-1.5 rounded-[30px] bg-dd-black px-4 shadow-lg">
         <AssetImage
           src={assets.iconToastCheck}
           alt=""

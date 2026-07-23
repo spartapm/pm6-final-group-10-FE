@@ -1,62 +1,107 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { apiFetch } from "@/lib/api-client";
+import { useEffect, useRef, useState } from "react";
 import { getJobImageUrl } from "@/lib/jobImageUrl";
 import { assets } from "@/lib/assets";
-import type { JobPosting } from "@/lib/types";
+import type { JobImage, JobPosting } from "@/lib/types";
 import { AssetImage } from "@/components/ui/AssetImage";
+
+export interface PendingImage {
+  id: string;
+  file: File;
+  previewUrl: string;
+}
 
 interface OriginalTabProps {
   job: JobPosting;
   form: JobPosting;
   onChange: (updates: Partial<JobPosting>) => void;
-  onImagesChange: () => void;
+  pendingImages: PendingImage[];
+  deletedImageIds: string[];
+  onPendingChange: (
+    pending: PendingImage[],
+    deletedIds: string[]
+  ) => void;
 }
 
 export function OriginalTab({
   job,
   form,
   onChange,
-  onImagesChange,
+  pendingImages,
+  deletedImageIds,
+  onPendingChange,
 }: OriginalTabProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
 
-  async function uploadFile(file: File) {
-    if (!["image/jpeg", "image/png", "image/jpg"].includes(file.type)) {
-      setError("JPG, PNG 파일만 첨부할 수 있어요.");
-      return;
-    }
-    if (file.size > 4 * 1024 * 1024) {
-      setError("4MB 이하의 파일만 첨부할 수 있어요.");
-      return;
-    }
-    if ((job.job_posting_images?.length ?? 0) >= 5) {
-      setError("이미지는 최대 5개까지 첨부할 수 있어요.");
-      return;
+  const savedImages = (job.job_posting_images ?? []).filter(
+    (img) => !deletedImageIds.includes(img.id)
+  );
+  const totalCount = savedImages.length + pendingImages.length;
+
+  useEffect(() => {
+    return () => {
+      // revoke only handled by parent on discard; keep previews while mounted
+    };
+  }, []);
+
+  function addFiles(files: FileList | File[]) {
+    const list = Array.from(files);
+    let nextPending = [...pendingImages];
+    let nextDeleted = [...deletedImageIds];
+    let err = "";
+
+    for (const file of list) {
+      if (!["image/jpeg", "image/png", "image/jpg"].includes(file.type)) {
+        err = "JPG, PNG 파일만 첨부할 수 있어요.";
+        continue;
+      }
+      if (file.size > 4 * 1024 * 1024) {
+        err = "4MB 이하의 파일만 첨부할 수 있어요.";
+        continue;
+      }
+      const currentTotal =
+        (job.job_posting_images ?? []).filter(
+          (img) => !nextDeleted.includes(img.id)
+        ).length + nextPending.length;
+      if (currentTotal >= 5) {
+        err = "이미지는 최대 5개까지 첨부할 수 있어요.";
+        break;
+      }
+      nextPending.push({
+        id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      });
     }
 
+    setError(err);
+    onPendingChange(nextPending, nextDeleted);
+  }
+
+  function removeSaved(img: JobImage) {
+    onPendingChange(pendingImages, [...deletedImageIds, img.id]);
     setError("");
-    const formData = new FormData();
-    formData.append("file", file);
+  }
 
-    await apiFetch(`/jobs/${job.id}/images`, {
-      method: "POST",
-      body: formData,
-    });
-    onImagesChange();
+  function removePending(id: string) {
+    const target = pendingImages.find((p) => p.id === id);
+    if (target) URL.revokeObjectURL(target.previewUrl);
+    onPendingChange(
+      pendingImages.filter((p) => p.id !== id),
+      deletedImageIds
+    );
+    setError("");
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) uploadFile(file);
+    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
   }
 
-  const showRawFail =
-    job.parsing_status === "fail" && !form.raw_text;
+  const showRawFail = job.parsing_status === "fail" && !form.raw_text;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -116,9 +161,9 @@ export function OriginalTab({
             )}
           </div>
 
-          {(job.job_posting_images ?? []).length > 0 && (
+          {totalCount > 0 && (
             <div className="flex flex-wrap gap-5">
-              {(job.job_posting_images ?? []).map((img) => {
+              {savedImages.map((img) => {
                 const src = getJobImageUrl(img.storage_path);
                 return (
                   <div key={img.id} className="relative size-[120px]">
@@ -140,12 +185,9 @@ export function OriginalTab({
                     </button>
                     <button
                       type="button"
-                      onClick={async (e) => {
+                      onClick={(e) => {
                         e.stopPropagation();
-                        await apiFetch(`/jobs/${job.id}/images/${img.id}`, {
-                          method: "DELETE",
-                        });
-                        onImagesChange();
+                        removeSaved(img);
                       }}
                       className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-dd-error text-xs text-white"
                     >
@@ -154,6 +196,32 @@ export function OriginalTab({
                   </div>
                 );
               })}
+              {pendingImages.map((img) => (
+                <div key={img.id} className="relative size-[120px]">
+                  <button
+                    type="button"
+                    onClick={() => setPreview(img.previewUrl)}
+                    className="flex size-full items-center justify-center overflow-hidden bg-white"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.previewUrl}
+                      alt="첨부 예정 이미지"
+                      className="size-full object-cover"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removePending(img.id);
+                    }}
+                    className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-dd-error text-xs text-white"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
@@ -192,8 +260,8 @@ export function OriginalTab({
               accept="image/jpeg,image/png"
               className="hidden"
               onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) uploadFile(file);
+                if (e.target.files?.length) addFiles(e.target.files);
+                e.target.value = "";
               }}
             />
           </div>

@@ -256,22 +256,46 @@ function DeadlineRow({
   );
 }
 
-function parseKeywordInput(input: string): StructuredKeyword[] | null {
+function parseSectionKeywords(
+  input: string,
+  section: StructuredKeyword["source_section"],
+  startOrder: number
+): StructuredKeyword[] | null {
   const next = input
     .split(",")
     .map((k) => k.trim())
     .filter(Boolean);
 
+  // JD-DP-INS-04: 칸별 최대 30개, 키워드 1개당 공백 포함 최대 20자
   if (next.length > 30 || next.some((k) => k.length > 20)) {
     return null;
   }
 
-  return next.map((text, order) => ({
+  return next.map((text, i) => ({
     text,
-    source_section: "기타" as const,
-    order,
+    source_section: section,
+    order: startOrder + i,
     source: "user" as const,
   }));
+}
+
+function parseKeywordSections(inputs: {
+  자격요건: string;
+  우대사항: string;
+  기타: string;
+}): StructuredKeyword[] | null {
+  const sections = KEYWORD_SECTIONS;
+  const result: StructuredKeyword[] = [];
+  let order = 0;
+
+  for (const section of sections) {
+    const parsed = parseSectionKeywords(inputs[section], section, order);
+    if (!parsed) return null;
+    result.push(...parsed);
+    order += parsed.length;
+  }
+
+  return result;
 }
 
 export function InsightTab({
@@ -280,18 +304,19 @@ export function InsightTab({
   onRegisterKeywordApply,
 }: InsightTabProps) {
   const [editingKeywords, setEditingKeywords] = useState(false);
-  const [keywordInput, setKeywordInput] = useState(
-    (form.competency_keywords ?? []).map((k) => k.text).join(", ")
-  );
-  const [keywordError, setKeywordError] = useState(false);
-
   const groups = groupKeywords(form.competency_keywords ?? []);
+  const [sectionInputs, setSectionInputs] = useState({
+    자격요건: groups["자격요건"].map((k) => k.text).join(", "),
+    우대사항: groups["우대사항"].map((k) => k.text).join(", "),
+    기타: groups["기타"].map((k) => k.text).join(", "),
+  });
+  const [keywordError, setKeywordError] = useState(false);
 
   useEffect(() => {
     if (!onRegisterKeywordApply) return;
     onRegisterKeywordApply(() => {
       if (!editingKeywords) return null;
-      const parsed = parseKeywordInput(keywordInput);
+      const parsed = parseKeywordSections(sectionInputs);
       if (!parsed) {
         setKeywordError(true);
         return null;
@@ -299,10 +324,20 @@ export function InsightTab({
       setKeywordError(false);
       return parsed;
     });
-  }, [editingKeywords, keywordInput, onRegisterKeywordApply]);
+  }, [editingKeywords, sectionInputs, onRegisterKeywordApply]);
+
+  function startEditing() {
+    const g = groupKeywords(form.competency_keywords ?? []);
+    setSectionInputs({
+      자격요건: g["자격요건"].map((k) => k.text).join(", "),
+      우대사항: g["우대사항"].map((k) => k.text).join(", "),
+      기타: g["기타"].map((k) => k.text).join(", "),
+    });
+    setEditingKeywords(true);
+  }
 
   function saveKeywords() {
-    const parsed = parseKeywordInput(keywordInput);
+    const parsed = parseKeywordSections(sectionInputs);
     if (!parsed) {
       setKeywordError(true);
       return;
@@ -348,14 +383,7 @@ export function InsightTab({
                   !editingKeywords ? (
                     <button
                       type="button"
-                      onClick={() => {
-                        setKeywordInput(
-                          (form.competency_keywords ?? [])
-                            .map((k) => k.text)
-                            .join(", ")
-                        );
-                        setEditingKeywords(true);
-                      }}
+                      onClick={startEditing}
                       className="ml-1 border-b border-dd-gray-500 text-xs tracking-[-0.132px] text-dd-gray-500"
                     >
                       편집하기
@@ -364,7 +392,7 @@ export function InsightTab({
                     <button
                       type="button"
                       onClick={saveKeywords}
-                      className="ml-1 text-xs font-medium text-dd-primary-green"
+                      className="ml-1 text-xs font-medium text-dd-error"
                     >
                       적용
                     </button>
@@ -373,22 +401,34 @@ export function InsightTab({
               />
 
               {editingKeywords ? (
-                <>
-                  <AutoGrowTextarea
-                    value={keywordInput}
-                    onChange={setKeywordInput}
-                    minRows={2}
-                    placeholder="역량키워드, 역량키워드..."
-                  />
+                <div className="flex flex-col gap-3">
+                  {KEYWORD_SECTIONS.map((section) => (
+                    <div key={section} className="flex flex-col gap-1">
+                      <p className="text-sm font-semibold text-dd-black">
+                        {SECTION_DISPLAY[section] ?? section}
+                      </p>
+                      <AutoGrowTextarea
+                        value={sectionInputs[section]}
+                        onChange={(value) =>
+                          setSectionInputs((prev) => ({
+                            ...prev,
+                            [section]: value,
+                          }))
+                        }
+                        minRows={1}
+                        placeholder="역량키워드, 역량키워드..."
+                      />
+                    </div>
+                  ))}
                   <p
-                    className={`mt-1 text-[10px] ${
+                    className={`text-[10px] ${
                       keywordError ? "text-dd-error" : "text-dd-gray-500"
                     }`}
                   >
-                    키워드는 공백 포함 한글 15자, 영어 20자, 전체 키워드는 30개로
-                    제한됩니다.
+                    키워드는 공백 포함 한글 15자, 영어 20자, 각 영역별로 최대
+                    30개씩 등록 가능합니다.
                   </p>
-                </>
+                </div>
               ) : (
                 <div className="flex flex-col gap-2">
                   {KEYWORD_SECTIONS.map((section) => {

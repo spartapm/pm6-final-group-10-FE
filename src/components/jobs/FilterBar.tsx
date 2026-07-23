@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AssetImage } from "@/components/ui/AssetImage";
 import { assets } from "@/lib/assets";
 import { SORT_OPTIONS } from "@/lib/constants";
+import {
+  isChoseongQuery,
+  isPrefixChoseongMatch,
+  matchesChoseong,
+} from "@/lib/choseong";
+import { koThenEnCompare } from "@/lib/keywords";
 
 interface FilterBarProps {
   allKeywords: string[];
@@ -13,6 +19,23 @@ interface FilterBarProps {
   onExcludeExpiredChange: (v: boolean) => void;
   sort: string;
   onSortChange: (sort: string) => void;
+}
+
+function rankKeyword(kw: string, query: string): number {
+  const q = query.trim();
+  if (!q) return 2;
+
+  if (isChoseongQuery(q)) {
+    if (isPrefixChoseongMatch(kw, q)) return 0;
+    if (matchesChoseong(kw, q)) return 1;
+    return 99;
+  }
+
+  const lower = kw.toLowerCase();
+  const qLower = q.toLowerCase();
+  if (lower.startsWith(qLower)) return 0;
+  if (lower.includes(qLower)) return 1;
+  return 99;
 }
 
 export function FilterBar({
@@ -45,17 +68,25 @@ export function FilterBar({
     setSearch("");
   }
 
-  const sortedAll = [...allKeywords].sort((a, b) => a.localeCompare(b, "ko"));
-  const searchLower = search.trim().toLowerCase();
-  const filtered = searchLower
-    ? sortedAll.filter((kw) => kw.toLowerCase().includes(searchLower))
-    : sortedAll;
+  const filtered = useMemo(() => {
+    const q = search.trim();
+    const candidates = q
+      ? allKeywords.filter((kw) => rankKeyword(kw, q) < 99)
+      : [...allKeywords];
+
+    return candidates.sort((a, b) => {
+      const ra = rankKeyword(a, q);
+      const rb = rankKeyword(b, q);
+      if (ra !== rb) return ra - rb;
+      return koThenEnCompare(a, b);
+    });
+  }, [allKeywords, search]);
 
   const sortLabel =
     SORT_OPTIONS.find((o) => o.value === sort)?.label ?? "저장일 내림차순";
 
   return (
-    <div className="flex h-[60px] shrink-0 items-center justify-between bg-white px-20">
+    <div className="flex h-[60px] shrink-0 items-center justify-between bg-dd-gray-100 px-20">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <div className="relative shrink-0">
           <button
@@ -84,7 +115,6 @@ export function FilterBar({
                 onClick={() => setDropdownOpen(false)}
               />
               <div className="absolute left-0 top-full z-20 mt-2 flex w-[524px] flex-col overflow-hidden rounded-[15px] border border-dd-gray-200 bg-white shadow-lg">
-                {/* 검색 영역 — Figma 757:29757 */}
                 <div className="flex h-[58px] shrink-0 items-center justify-center px-[10.5px] py-2">
                   <div className="flex h-10 w-full max-w-[503px] items-center gap-2.5 overflow-hidden rounded-full bg-[#F1F1F1] pl-5">
                     <input
@@ -94,7 +124,7 @@ export function FilterBar({
                         if (e.key === "Enter") e.preventDefault();
                       }}
                       placeholder="찾으시는 역량키워드를 검색하세요"
-                      className="font-pretendard min-w-0 flex-1 bg-transparent text-[10px] font-medium tracking-[-0.11px] text-dd-black outline-none placeholder:text-[#6B6B75]"
+                      className="font-pretendard min-w-0 flex-1 bg-transparent text-xs font-medium tracking-[-0.11px] text-dd-black outline-none placeholder:text-[#6B6B75]"
                     />
                     <button
                       type="button"
@@ -112,11 +142,10 @@ export function FilterBar({
                   </div>
                 </div>
 
-                {/* 칩 스크롤 영역 — Figma 757:29763 */}
                 <div className="h-[140px] shrink-0 overflow-y-auto px-3 py-2">
                   {filtered.length === 0 ? (
                     <p className="px-1 text-sm text-dd-gray-500">
-                      검색 결과가 없어요.
+                      일치하는 키워드가 없어요.
                     </p>
                   ) : (
                     <div className="flex flex-wrap content-start gap-1">
@@ -127,7 +156,7 @@ export function FilterBar({
                             key={kw}
                             type="button"
                             onClick={() => toggleKeyword(kw)}
-                            className={`font-pretendard rounded-full border-[0.5px] border-dd-black px-1.5 py-1.5 text-[10px] leading-normal tracking-[-0.11px] ${
+                            className={`font-pretendard rounded-full border-[0.5px] border-dd-black px-1.5 py-1.5 text-xs leading-normal tracking-[-0.11px] ${
                               selected
                                 ? "bg-dd-black font-medium text-white"
                                 : "bg-white font-semibold text-dd-black"
@@ -141,12 +170,11 @@ export function FilterBar({
                   )}
                 </div>
 
-                {/* 하단 적용하기 — Figma 757:29799 */}
                 <div className="flex h-[41px] shrink-0 items-center justify-end p-2">
                   <button
                     type="button"
                     onClick={applyKeywords}
-                    className="font-pretendard rounded-[15px] bg-dd-primary-green px-5 py-1.5 text-[10px] font-semibold text-white"
+                    className="font-pretendard rounded-[15px] bg-dd-primary-green px-5 py-1.5 text-xs font-semibold text-white"
                   >
                     적용하기
                   </button>

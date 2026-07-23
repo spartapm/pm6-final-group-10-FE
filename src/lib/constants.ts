@@ -3,11 +3,12 @@ export const API_BASE_URL =
 
 export const CS_EMAIL = "choigudahm@gmail.com";
 
+/** JD-FOL-M04 / JD-DP-02: 슬롯별 배경색, 글씨색 공통 #FFFFFF */
 export const FOLDER_SLOT_COLORS: Record<number, { bg: string; text: string }> = {
-  1: { bg: "#63CCCA", text: "#18181B" },
+  1: { bg: "#63CCCA", text: "#FFFFFF" },
   2: { bg: "#32A287", text: "#FFFFFF" },
-  3: { bg: "#82D173", text: "#18181B" },
-  4: { bg: "#94E8B4", text: "#18181B" },
+  3: { bg: "#82D173", text: "#FFFFFF" },
+  4: { bg: "#94E8B4", text: "#FFFFFF" },
   5: { bg: "#397367", text: "#FFFFFF" },
 };
 

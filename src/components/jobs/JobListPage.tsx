@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AssetImage } from "@/components/ui/AssetImage";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { assets } from "@/lib/assets";
-import { keywordTexts } from "@/lib/keywords";
+import { keywordTexts, koThenEnCompare } from "@/lib/keywords";
 import type { JobPosting, Profile } from "@/lib/types";
 import { HeaderArea } from "../layout/HeaderArea";
 import { TabGNB } from "../layout/GNB";
@@ -14,6 +14,7 @@ import { JobCard } from "./JobCard";
 import { JobDetailModal } from "../job-detail/JobDetailModal";
 import { Modal, ModalButton } from "../ui/Modal";
 import { Spinner } from "../ui/Spinner";
+import { Toast } from "../ui/Toast";
 import { getParseFailureMessage } from "@/lib/parseFailureMessage";
 import { OnboardingModal } from "../onboarding/OnboardingModal";
 
@@ -31,8 +32,13 @@ export function JobListPage({ folderId, uncategorized }: JobListPageProps) {
   const [parseLoading, setParseLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<JobPosting | null>(null);
   const [parseFailJob, setParseFailJob] = useState<JobPosting | null>(null);
+  const [imageBasedJob, setImageBasedJob] = useState<JobPosting | null>(null);
+  const [duplicateUrl, setDuplicateUrl] = useState(false);
   const [networkError, setNetworkError] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [listResetKey, setListResetKey] = useState(0);
+  const [urlResetKey, setUrlResetKey] = useState(0);
 
   const { data: profile } = useQuery({
     queryKey: ["profile"],
@@ -66,46 +72,55 @@ export function JobListPage({ folderId, uncategorized }: JobListPageProps) {
     },
   });
 
-  const { data: allKeywords = [] } = useQuery({
-    queryKey: ["keywords"],
-    queryFn: () => apiFetch<string[]>("/jobs/keywords"),
-  });
-
   const keywordOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const kw of allKeywords) {
-      if (kw.trim()) set.add(kw);
-    }
     for (const job of jobsForKeywords) {
       for (const kw of keywordTexts(job.competency_keywords)) {
         if (kw.trim()) set.add(kw);
       }
     }
-    return [...set].sort((a, b) => a.localeCompare(b, "ko"));
-  }, [allKeywords, jobsForKeywords]);
+    return [...set].sort(koThenEnCompare);
+  }, [jobsForKeywords]);
+
+  const resetListState = useCallback(() => {
+    setSelectedKeywords([]);
+    setExcludeExpired(false);
+    setSort("saved_at_desc");
+    setUrlResetKey((k) => k + 1);
+    setListResetKey((k) => k + 1);
+    window.scrollTo(0, 0);
+  }, []);
 
   const handleParse = useCallback(
     async (url: string, selectedFolderId: string | null) => {
       setParseLoading(true);
       setNetworkError(false);
       try {
-        const result = await apiFetch<{ job: JobPosting; parseResult: string }>(
-          "/jobs/parse",
-          {
-            method: "POST",
-            body: JSON.stringify({ url, folder_id: selectedFolderId }),
-          }
-        );
+        const result = await apiFetch<{
+          job: JobPosting;
+          parseResult: string;
+          is_image_based?: boolean;
+        }>("/jobs/parse", {
+          method: "POST",
+          body: JSON.stringify({ url, folder_id: selectedFolderId }),
+        });
         await queryClient.invalidateQueries({ queryKey: ["jobs"] });
         await queryClient.invalidateQueries({ queryKey: ["keywords"] });
 
-        if (result.parseResult === "fail") {
+        if (result.is_image_based) {
+          setImageBasedJob(result.job);
+        } else if (result.parseResult === "fail") {
           setParseFailJob(result.job);
         } else {
-          setSelectedJob(result.job);
+          // 완전 성공 / 부분 성공: 저장 완료 토스트만, 상세 이동 X
+          setToastOpen(true);
         }
       } catch (err) {
         if (err instanceof ApiError) {
+          if (err.code === "duplicate_url") {
+            setDuplicateUrl(true);
+            return;
+          }
           if (err.status < 500) throw err;
         }
         setNetworkError(true);
@@ -139,9 +154,13 @@ export function JobListPage({ folderId, uncategorized }: JobListPageProps) {
   const showEmptyIllustration = !folderId && !uncategorized && jobs.length === 0;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <HeaderArea onSubmit={handleParse} loading={parseLoading} />
-      <TabGNB />
+    <div className="flex h-full flex-col overflow-hidden" key={listResetKey}>
+      <HeaderArea
+        key={urlResetKey}
+        onSubmit={handleParse}
+        loading={parseLoading}
+      />
+      <TabGNB onActiveTabReclick={resetListState} />
 
       <FilterBar
         allKeywords={keywordOptions}
@@ -160,7 +179,6 @@ export function JobListPage({ folderId, uncategorized }: JobListPageProps) {
           </div>
         ) : jobs.length === 0 ? (
           showEmptyIllustration ? (
-            // Figma 907:9030 — 전체보기 0건: 3단 가이드 일러스트만
             <div className="flex justify-center">
               <AssetImage
                 src={assets.listEmpty}
@@ -226,9 +244,47 @@ export function JobListPage({ folderId, uncategorized }: JobListPageProps) {
         }
       >
         <p>
-          {getParseFailureMessage(parseFailJob?.parse_failure_reason)}
-          {" "}수동 입력으로 진행하시겠어요?
+          {getParseFailureMessage(parseFailJob?.parse_failure_reason)}{" "}
+          수동 입력으로 진행하시겠어요?
         </p>
+      </Modal>
+
+      <Modal
+        open={!!imageBasedJob}
+        title="안내"
+        onClose={() => setImageBasedJob(null)}
+        variant="parse-fail"
+        actions={
+          <ModalButton
+            variant="primary"
+            onClick={() => {
+              setSelectedJob(imageBasedJob);
+              setImageBasedJob(null);
+            }}
+          >
+            확인
+          </ModalButton>
+        }
+      >
+        <p>
+          이미지형 공고는 내용 인식이 정확하지 않을 수 있어요.
+          <br />
+          입력된 내용을 검토해 주세요.
+        </p>
+      </Modal>
+
+      <Modal
+        open={duplicateUrl}
+        title="안내"
+        onClose={() => setDuplicateUrl(false)}
+        variant="error"
+        actions={
+          <ModalButton variant="outline" onClick={() => setDuplicateUrl(false)}>
+            닫기
+          </ModalButton>
+        }
+      >
+        <p>이미 저장된 공고입니다.</p>
       </Modal>
 
       <Modal
@@ -268,6 +324,7 @@ export function JobListPage({ folderId, uncategorized }: JobListPageProps) {
         <JobDetailModal
           job={selectedJob}
           onClose={() => setSelectedJob(null)}
+          onSaved={() => setToastOpen(true)}
           onUpdated={(updated) => {
             setSelectedJob(updated);
             queryClient.invalidateQueries({ queryKey: ["jobs"] });
@@ -279,6 +336,12 @@ export function JobListPage({ folderId, uncategorized }: JobListPageProps) {
           }}
         />
       )}
+
+      <Toast
+        message="저장이 완료되었어요!"
+        open={toastOpen}
+        onClose={() => setToastOpen(false)}
+      />
 
       <OnboardingModal
         open={showOnboarding}

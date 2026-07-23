@@ -12,6 +12,7 @@ import { clearDevSession, isSupabaseConfigured } from "@/lib/supabase/config";
 import { nicknameSchema } from "@/lib/validators";
 import type { Profile } from "@/lib/types";
 import { Modal, ModalButton } from "@/components/ui/Modal";
+import { Toast } from "@/components/ui/Toast";
 import { HeaderArea } from "@/components/layout/HeaderArea";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 
@@ -23,6 +24,7 @@ export function SettingsPage() {
   const [saveError, setSaveError] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [toastOpen, setToastOpen] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ["profile"],
@@ -49,6 +51,7 @@ export function SettingsPage() {
         body: JSON.stringify({ nickname }),
       });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      setToastOpen(true);
     } catch {
       setSaveError(true);
     }
@@ -188,7 +191,7 @@ export function SettingsPage() {
                 ddakpool
               </span>
               <span className="font-pretendard text-[8px] leading-none tracking-[-0.088px] text-dd-gray-500">
-                ddakpool.v1.0
+                ddakpool.v2.0
               </span>
             </div>
             <p className="font-pretendard text-[10px] leading-[1.5] tracking-[-0.11px] text-dd-black">
@@ -215,8 +218,14 @@ export function SettingsPage() {
               회원 탈퇴
             </button>
             <p className="font-pretendard text-[10px] font-semibold text-dd-gray-500">
-              딱풀은 현재 베타 서비스 입니다. 문의·제안은 {CS_EMAIL} 로
-              보내주세요.
+              딱풀은 현재 베타 서비스 입니다. 문의·제안은{" "}
+              <a
+                href={`mailto:${CS_EMAIL}`}
+                className="underline hover:text-dd-black"
+              >
+                {CS_EMAIL}
+              </a>{" "}
+              로 보내주세요.
             </p>
           </div>
         </div>
@@ -269,6 +278,12 @@ export function SettingsPage() {
           setShowOnboarding(false);
           queryClient.invalidateQueries({ queryKey: ["profile"] });
         }}
+      />
+
+      <Toast
+        message="저장이 완료되었어요!"
+        open={toastOpen}
+        onClose={() => setToastOpen(false)}
       />
     </div>
   );

@@ -41,6 +41,7 @@ export interface JobPosting {
   raw_text: string;
   memo: string;
   competency_keywords: StructuredKeyword[];
+  is_image_based?: boolean;
   saved_at: string;
   updated_at: string;
   job_posting_images?: JobImage[];

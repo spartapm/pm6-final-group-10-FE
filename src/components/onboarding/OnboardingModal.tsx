@@ -44,17 +44,17 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-[400px] overflow-hidden rounded-2xl bg-white shadow-xl">
+      <div className="flex h-[480px] w-full max-w-[400px] flex-col overflow-hidden rounded-[30px] bg-white shadow-xl">
         <AssetImage
           src={assets.onboarding[step] ?? assets.onboarding[0]}
           alt=""
           width={400}
           height={270}
-          className="h-[270px] w-full object-cover"
+          className="h-[270px] w-full shrink-0 object-cover"
           placeholderClassName="h-[270px] w-full bg-dd-gray-200"
         />
 
-        <div className="px-8 pb-8 pt-4">
+        <div className="flex min-h-0 flex-1 flex-col px-8 pb-8 pt-4">
           <h2 className="whitespace-pre-line text-xl font-bold leading-snug text-dd-black">
             {slide.title}
           </h2>

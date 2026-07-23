@@ -105,6 +105,15 @@ export function FolderEditModal({ open, onClose }: FolderEditModalProps) {
   }, [editingIndex]);
 
   function handleClose() {
+    // 인라인 편집 중 바깥 클릭: draft가 원본과 다르면 dirty로 취급
+    if (editingIndex !== null) {
+      const original = folders[editingIndex]?.name ?? "";
+      if (draftName.trim() !== original.trim()) {
+        setDirty(true);
+        setShowLeave(true);
+        return;
+      }
+    }
     if (dirty) {
       setShowLeave(true);
       return;
@@ -221,7 +230,15 @@ export function FolderEditModal({ open, onClose }: FolderEditModalProps) {
     onClose();
   }
 
-  if (!open) return null;
+  if (!open) {
+    return (
+      <Toast
+        message="저장이 완료되었어요!"
+        open={toastOpen}
+        onClose={() => setToastOpen(false)}
+      />
+    );
+  }
 
   const deleteTarget =
     showDeleteConfirm !== null ? folders[showDeleteConfirm] : null;
@@ -377,11 +394,11 @@ export function FolderEditModal({ open, onClose }: FolderEditModalProps) {
           </>
         }
       >
-        <div className="space-y-2 text-left">
-          <p>[{deleteTarget?.name ?? "폴더"}]을 삭제하시겠어요?</p>
+        <div className="space-y-2 text-center">
+          <p>[{deleteTarget?.name ?? "폴더"}] 폴더를 삭제하시겠어요?</p>
           <p className="text-xs text-dd-gray-500">
             폴더가 삭제되어도 안에 있는 공고들은 삭제되지 않아요. 해당 공고들은
-            전체보기나 기타에서 보실 수 있어요.
+            전체보기나 미분류에서 보실 수 있어요.
           </p>
         </div>
       </Modal>
@@ -412,7 +429,7 @@ export function FolderEditModal({ open, onClose }: FolderEditModalProps) {
       </Modal>
 
       <Toast
-        message="폴더가 저장되었어요!"
+        message="저장이 완료되었어요!"
         open={toastOpen}
         onClose={() => setToastOpen(false)}
       />

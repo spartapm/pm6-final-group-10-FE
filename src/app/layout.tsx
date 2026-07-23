@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { PostHogProvider } from "@/providers/PostHogProvider";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
 
 export const metadata: Metadata = {
   title: "딱풀 - 개인 채용공고 라이브러리",
@@ -20,8 +14,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={inter.variable}>
-      <body className="min-h-screen bg-dd-gray-100 text-dd-black antialiased">
+    <html lang="ko">
+      <body className="font-pretendard min-h-screen bg-dd-gray-100 text-dd-black antialiased">
         <PostHogProvider>
           <QueryProvider>{children}</QueryProvider>
         </PostHogProvider>

@@ -22,10 +22,11 @@ function isFolderActive(pathname: string, folderId: string) {
 }
 
 function tabClass(active: boolean) {
-  return `flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition ${
+  // GNB-01: 활성 언더라인 3px #18181B SemiBold / 비활성 Medium #18181B
+  return `flex items-center gap-2 border-b-[3px] px-4 py-3 text-sm transition ${
     active
-      ? "border-dd-black text-dd-black"
-      : "border-transparent text-dd-gray-500 hover:text-dd-black"
+      ? "border-dd-black font-semibold text-dd-black"
+      : "border-transparent font-medium text-dd-black hover:opacity-80"
   }`;
 }
 
@@ -42,7 +43,11 @@ function TabIcon({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-export function TabGNB() {
+export function TabGNB({
+  onActiveTabReclick,
+}: {
+  onActiveTabReclick?: () => void;
+} = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const [folderModalOpen, setFolderModalOpen] = useState(false);
@@ -53,8 +58,12 @@ export function TabGNB() {
   });
 
   function handleNavClick(href: string, isActive: boolean) {
-    if (isActive) router.refresh();
-    else router.push(href);
+    if (isActive) {
+      onActiveTabReclick?.();
+      router.refresh();
+    } else {
+      router.push(href);
+    }
   }
 
   return (
@@ -107,7 +116,7 @@ export function TabGNB() {
               }
               alt=""
             />
-            기타
+            미분류
           </button>
         </div>
 

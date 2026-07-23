@@ -38,9 +38,33 @@ export function MemoTab({ form, onChange }: MemoTabProps) {
         <textarea
           value={form.memo}
           onChange={(e) => {
-            if (e.target.value.length <= 5000) {
-              onChange({ memo: e.target.value });
+            onChange({ memo: e.target.value.slice(0, 5000) });
+          }}
+          onPaste={(e) => {
+            const target = e.currentTarget;
+            const pasted = e.clipboardData.getData("text");
+            if (!pasted) return;
+
+            const start = target.selectionStart ?? form.memo.length;
+            const end = target.selectionEnd ?? start;
+            const before = form.memo.slice(0, start);
+            const after = form.memo.slice(end);
+            const remaining = 5000 - before.length - after.length;
+            if (remaining <= 0) {
+              e.preventDefault();
+              return;
             }
+
+            // 남은 글자 수만큼만 첨부, 초과분 생략 (JD-DP-MMO-03)
+            e.preventDefault();
+            const clipped = pasted.slice(0, remaining);
+            const next = `${before}${clipped}${after}`.slice(0, 5000);
+            onChange({ memo: next });
+
+            const caret = before.length + clipped.length;
+            requestAnimationFrame(() => {
+              target.setSelectionRange(caret, caret);
+            });
           }}
           className="min-h-0 flex-1 resize-none bg-white px-5 py-3 text-sm leading-[1.5] tracking-[-0.154px] text-dd-black outline-none placeholder:text-dd-gray-500"
           placeholder={`준비 방향, 느낀 점, 궁금한 것 등
@@ -48,11 +72,11 @@ export function MemoTab({ form, onChange }: MemoTabProps) {
         />
 
         <p
-          className={`shrink-0 text-right text-sm tracking-[-0.154px] ${
+          className={`shrink-0 text-left text-sm tracking-[-0.154px] ${
             overLimit ? "text-dd-error" : "text-dd-gray-500"
           }`}
         >
-          {count} / 5000
+          {count}/5000
         </p>
       </div>
     </div>

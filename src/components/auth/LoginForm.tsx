@@ -144,10 +144,11 @@ export function LoginForm() {
       </Link>
 
       <p className="text-center text-xs text-dd-gray-500">
-        문의:{" "}
+        딱풀은 현재 베타 서비스 입니다. 문의·제안은{" "}
         <a href={`mailto:${CS_EMAIL}`} className="underline">
           {CS_EMAIL}
-        </a>
+        </a>{" "}
+        로 보내주세요.
       </p>
     </form>
   );

@@ -9,10 +9,9 @@ import { FOLDER_SLOT_COLORS } from "@/lib/constants";
 import { layout } from "@/lib/design-tokens";
 import type { Folder, JobPosting, StructuredKeyword } from "@/lib/types";
 import { InsightTab } from "./InsightTab";
-import { OriginalTab } from "./OriginalTab";
+import { OriginalTab, type PendingImage } from "./OriginalTab";
 import { MemoTab } from "./MemoTab";
 import { Modal, ModalButton } from "../ui/Modal";
-import { Toast } from "../ui/Toast";
 import { AssetImage } from "../ui/AssetImage";
 import { assets } from "@/lib/assets";
 
@@ -21,6 +20,8 @@ interface JobDetailModalProps {
   onClose: () => void;
   onUpdated: (job: JobPosting) => void;
   onDeleted: () => void;
+  /** 저장 완료 후 모달이 닫힌 뒤 부모에서 POP-04 토스트 표시 */
+  onSaved?: () => void;
 }
 
 type Tab = "insight" | "original" | "memo";
@@ -41,11 +42,16 @@ function withDerivedDeadline(job: JobPosting): JobPosting {
   return { ...job, deadline_status };
 }
 
+function discardPending(pending: PendingImage[]) {
+  for (const p of pending) URL.revokeObjectURL(p.previewUrl);
+}
+
 export function JobDetailModal({
   job,
   onClose,
   onUpdated,
   onDeleted,
+  onSaved,
 }: JobDetailModalProps) {
   const [tab, setTab] = useState<Tab>("insight");
   const [form, setForm] = useState<JobPosting>(() => withDerivedDeadline(job));
@@ -53,9 +59,10 @@ export function JobDetailModal({
   const [showLeave, setShowLeave] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [saveError, setSaveError] = useState(false);
-  const [toastOpen, setToastOpen] = useState(false);
   const [folderOpen, setFolderOpen] = useState(false);
   const [currentJob, setCurrentJob] = useState(job);
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
   const keywordApplyRef = useRef<(() => StructuredKeyword[] | null) | null>(null);
 
   const { data: folders = [] } = useQuery({
@@ -67,7 +74,11 @@ export function JobDetailModal({
     setForm(withDerivedDeadline(job));
     setCurrentJob(job);
     setDirty(false);
-  }, [job]);
+    discardPending(pendingImages);
+    setPendingImages([]);
+    setDeletedImageIds([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when job identity changes
+  }, [job.id]);
 
   const registerKeywordApply = useCallback(
     (fn: () => StructuredKeyword[] | null) => {
@@ -81,6 +92,15 @@ export function JobDetailModal({
     setDirty(true);
   }
 
+  function handlePendingChange(
+    pending: PendingImage[],
+    deletedIds: string[]
+  ) {
+    setPendingImages(pending);
+    setDeletedImageIds(deletedIds);
+    setDirty(true);
+  }
+
   async function handleSave() {
     let formToSave = { ...form };
     const appliedKeywords = keywordApplyRef.current?.();
@@ -90,7 +110,7 @@ export function JobDetailModal({
     }
 
     try {
-      const updated = await apiFetch<JobPosting>(`/jobs/${job.id}`, {
+      await apiFetch<JobPosting>(`/jobs/${job.id}`, {
         method: "PATCH",
         body: JSON.stringify({
           folder_id: formToSave.folder_id,
@@ -111,16 +131,36 @@ export function JobDetailModal({
           competency_keywords: formToSave.competency_keywords,
         }),
       });
+
+      for (const id of deletedImageIds) {
+        await apiFetch(`/jobs/${job.id}/images/${id}`, { method: "DELETE" });
+      }
+
+      for (const pending of pendingImages) {
+        const formData = new FormData();
+        formData.append("file", pending.file);
+        await apiFetch(`/jobs/${job.id}/images`, {
+          method: "POST",
+          body: formData,
+        });
+      }
+
+      discardPending(pendingImages);
+      setPendingImages([]);
+      setDeletedImageIds([]);
+
+      const updated = await apiFetch<JobPosting>(`/jobs/${job.id}`);
       setDirty(false);
       onUpdated(updated);
-      setToastOpen(true);
       onClose();
+      onSaved?.();
     } catch (err) {
       if (err instanceof ApiError) setSaveError(true);
     }
   }
 
   async function handleDelete() {
+    discardPending(pendingImages);
     await apiFetch(`/jobs/${job.id}`, { method: "DELETE" });
     setShowDelete(false);
     onDeleted();
@@ -134,8 +174,19 @@ export function JobDetailModal({
     onClose();
   }
 
+  function confirmLeave() {
+    discardPending(pendingImages);
+    setPendingImages([]);
+    setDeletedImageIds([]);
+    setShowLeave(false);
+    onClose();
+  }
+
   const dday = getDdayLabel(form.deadline_date, form.deadline_status);
   const folder = folders.find((f) => f.id === form.folder_id);
+  const folderColor = folder
+    ? FOLDER_SLOT_COLORS[folder.slot] ?? FOLDER_SLOT_COLORS[1]
+    : null;
   const displayTitle =
     form.recruitment_field || form.job_title || "모집 분야 미정";
 
@@ -149,7 +200,6 @@ export function JobDetailModal({
             height: `min(${layout.detailModalHeight}px, calc(100dvh - 1rem))`,
           }}
         >
-          {/* 상단 블랙 바 + 닫기 */}
           <div className="flex h-[41px] shrink-0 items-center justify-end bg-dd-black px-5">
             <button
               type="button"
@@ -167,10 +217,8 @@ export function JobDetailModal({
             </button>
           </div>
 
-          {/* 제목 / 폴더 / D-day */}
           <div className="relative flex shrink-0 items-start justify-between gap-2 overflow-visible px-[18px] pb-[15px] pt-[9px] md:items-center md:px-9 md:py-[15px]">
             <div className="min-w-0 flex-1">
-              {/* 모바일: 폴더→제목 / 데스크톱: 제목 옆(자리 없으면 위) */}
               <div className="flex flex-col items-start gap-[5px] md:flex-row md:flex-wrap-reverse md:items-center md:gap-3">
                 <h2 className="order-2 max-w-full text-[20px] font-extrabold leading-[1.5] tracking-[-0.22px] text-dd-black md:order-none md:text-[30px] md:tracking-[-0.33px]">
                   {displayTitle}
@@ -179,7 +227,10 @@ export function JobDetailModal({
                   <button
                     type="button"
                     onClick={() => setFolderOpen(!folderOpen)}
-                    className="flex items-center gap-2 rounded-full bg-dd-primary-green px-2.5 py-1.5 text-[10px] font-semibold tracking-[-0.11px] text-white md:px-[21px] md:text-base md:tracking-[-0.176px]"
+                    className="flex items-center gap-2 rounded-full px-2.5 py-1.5 text-[10px] font-semibold tracking-[-0.11px] text-white md:px-[21px] md:text-base md:tracking-[-0.176px]"
+                    style={{
+                      backgroundColor: folderColor?.bg ?? "#19B469",
+                    }}
                   >
                     {folder?.name ?? "저장 목적을 선택하세요"}
                     <AssetImage
@@ -247,7 +298,6 @@ export function JobDetailModal({
             )}
           </div>
 
-          {/* 탭 */}
           <div className="flex shrink-0 items-end justify-center bg-white px-[18px] md:justify-start md:px-9">
             {TABS.map((t) => (
               <button
@@ -265,7 +315,6 @@ export function JobDetailModal({
             ))}
           </div>
 
-          {/* 콘텐츠 */}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {tab === "insight" && (
               <InsightTab
@@ -279,18 +328,14 @@ export function JobDetailModal({
                 job={currentJob}
                 form={form}
                 onChange={updateForm}
-                onImagesChange={async () => {
-                  const refreshed = await apiFetch<JobPosting>(
-                    `/jobs/${job.id}`
-                  );
-                  setCurrentJob(refreshed);
-                }}
+                pendingImages={pendingImages}
+                deletedImageIds={deletedImageIds}
+                onPendingChange={handlePendingChange}
               />
             )}
             {tab === "memo" && <MemoTab form={form} onChange={updateForm} />}
           </div>
 
-          {/* 하단 — 모바일: 세로 스택 / 데스크톱: 가로 */}
           <div className="flex shrink-0 flex-col gap-3 px-[21px] py-4 md:h-[66px] md:flex-row md:items-center md:justify-between md:gap-0 md:py-0">
             {form.source_url ? (
               <a
@@ -326,12 +371,6 @@ export function JobDetailModal({
         </div>
       </div>
 
-      <Toast
-        message="저장이 완료되었어요!"
-        open={toastOpen}
-        onClose={() => setToastOpen(false)}
-      />
-
       <Modal
         open={saveError}
         title="안내"
@@ -355,13 +394,7 @@ export function JobDetailModal({
         variant="confirm-leave"
         actions={
           <>
-            <ModalButton
-              variant="danger"
-              onClick={() => {
-                setShowLeave(false);
-                onClose();
-              }}
-            >
+            <ModalButton variant="danger" onClick={confirmLeave}>
               나가기
             </ModalButton>
             <ModalButton variant="outline" onClick={() => setShowLeave(false)}>

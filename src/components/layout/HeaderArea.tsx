@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import posthog from "posthog-js";
 import { FolderEditModal } from "@/components/folders/FolderEditModal";
 import { AssetImage } from "@/components/ui/AssetImage";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, ApiError } from "@/lib/api-client";
 import { assets } from "@/lib/assets";
 import { FOLDER_SLOT_COLORS } from "@/lib/constants";
 import { validateJobUrl } from "@/lib/validators";
@@ -107,6 +107,10 @@ export function HeaderArea({ onSubmit, loading, compact }: HeaderAreaProps) {
       await onSubmit(url.trim(), folderId);
       setUrl("");
     } catch (err) {
+      if (err instanceof ApiError && err.code === "duplicate_url") {
+        // POP-10은 JobListPage에서 처리
+        return;
+      }
       if (err instanceof Error) setError(err.message);
     }
   }

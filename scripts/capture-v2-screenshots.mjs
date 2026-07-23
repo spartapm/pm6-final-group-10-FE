@@ -127,7 +127,7 @@ async function main() {
     await page.waitForTimeout(400);
 
     // Etc tab
-    await page.getByRole("button", { name: "기타", exact: true }).click();
+    await page.getByRole("button", { name: "미분류", exact: true }).click();
     await page.waitForTimeout(800);
     await shot(page, "04-folder-tab-list.png");
 

@@ -15,6 +15,7 @@ import {
   nicknameSchema,
   signupPasswordSchema,
 } from "@/lib/validators";
+import { LEGAL_DOCUMENTS } from "@/lib/legal";
 
 export function SignupForm() {
   const router = useRouter();
@@ -218,10 +219,11 @@ export function SignupForm() {
         </Link>
 
         <p className="text-center text-xs text-dd-gray-500">
-          문의:{" "}
+          딱풀은 현재 베타 서비스 입니다. 문의·제안은{" "}
           <a href={`mailto:${CS_EMAIL}`} className="underline">
             {CS_EMAIL}
-          </a>
+          </a>{" "}
+          로 보내주세요.
         </p>
       </form>
 
@@ -235,16 +237,10 @@ export function SignupForm() {
           </ModalButton>
         }
       >
-        <div className="max-h-60 overflow-y-auto text-sm text-dd-gray-500">
-          <p>
-            딱풀 서비스 이용약관에 따라 회원은 본인의 계정 정보를 안전하게
-            관리해야 하며, 서비스를 통해 수집·저장한 채용공고 데이터의 이용
-            책임은 회원에게 있습니다.
-          </p>
-          <p className="mt-3">
-            서비스는 채용공고 URL 파싱 및 개인 정리 기능을 제공하며, 제공되는
-            정보의 정확성은 원문 공고를 기준으로 확인해야 합니다.
-          </p>
+        <div className="max-h-[320px] overflow-y-auto text-left text-sm leading-relaxed text-dd-gray-500">
+          <pre className="whitespace-pre-wrap break-words font-pretendard">
+            {LEGAL_DOCUMENTS}
+          </pre>
         </div>
       </Modal>
     </>
