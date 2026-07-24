@@ -11,6 +11,7 @@ import { apiFetch } from "@/lib/api-client";
 import { assets } from "@/lib/assets";
 import type { Folder, JobPosting } from "@/lib/types";
 import { AssetImage } from "@/components/ui/AssetImage";
+import { captureEvent } from "@/lib/analytics";
 
 interface JobCardProps {
   job: JobPosting;
@@ -56,10 +57,15 @@ export function JobCard({
     selectedKeywords
   );
 
+  function handleOpen() {
+    captureEvent("card_clicked", { job_id: job.id });
+    onOpen(job);
+  }
+
   return (
     <div
       className="font-pretendard relative flex h-[192px] w-[252px] cursor-pointer flex-col rounded-2xl border border-dd-gray-400 bg-white p-4 shadow-sm transition hover:shadow-md"
-      onClick={() => onOpen(job)}
+      onClick={handleOpen}
     >
       <div ref={menuRef} className="flex shrink-0 items-start justify-between">
         <p className="line-clamp-1 pr-2 text-[10px] leading-none text-dd-gray-500">
