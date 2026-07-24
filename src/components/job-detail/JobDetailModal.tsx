@@ -12,6 +12,7 @@ import { InsightTab } from "./InsightTab";
 import { OriginalTab, type PendingImage } from "./OriginalTab";
 import { MemoTab } from "./MemoTab";
 import { Modal, ModalButton } from "../ui/Modal";
+import { Spinner } from "../ui/Spinner";
 import { AssetImage } from "../ui/AssetImage";
 import { assets } from "@/lib/assets";
 
@@ -59,6 +60,7 @@ export function JobDetailModal({
   const [showLeave, setShowLeave] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [folderOpen, setFolderOpen] = useState(false);
   const [currentJob, setCurrentJob] = useState(job);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
@@ -102,6 +104,8 @@ export function JobDetailModal({
   }
 
   async function handleSave() {
+    if (saving) return;
+
     let formToSave = { ...form };
     const appliedKeywords = keywordApplyRef.current?.();
     if (appliedKeywords) {
@@ -109,6 +113,7 @@ export function JobDetailModal({
       setForm(formToSave);
     }
 
+    setSaving(true);
     try {
       await apiFetch<JobPosting>(`/jobs/${job.id}`, {
         method: "PATCH",
@@ -156,6 +161,8 @@ export function JobDetailModal({
       onSaved?.();
     } catch (err) {
       if (err instanceof ApiError) setSaveError(true);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -361,10 +368,17 @@ export function JobDetailModal({
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={!dirty}
-                className="rounded-full bg-dd-primary-green px-5 py-2 text-sm font-semibold tracking-[-0.154px] text-white disabled:bg-dd-gray-500"
+                disabled={!dirty || saving}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-dd-primary-green px-5 py-2 text-sm font-semibold tracking-[-0.154px] text-white disabled:bg-dd-gray-500"
               >
-                저장하기
+                {saving ? (
+                  <>
+                    저장중
+                    <Spinner className="size-3" />
+                  </>
+                ) : (
+                  "저장하기"
+                )}
               </button>
             </div>
           </div>

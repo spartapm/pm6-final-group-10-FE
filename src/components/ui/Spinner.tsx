@@ -1,11 +1,26 @@
 interface SpinnerProps {
   className?: string;
+  /** 1회전 시간(ms). 기본 800ms (linear). */
+  durationMs?: number;
 }
 
-export function Spinner({ className = "h-8 w-8" }: SpinnerProps) {
+/**
+ * 원형 링 스피너 — 일부 호(arc)만 채움, 시계방향 연속 회전.
+ * 색상은 currentColor 기준(전경 = 텍스트색, 트랙 = 동일색 저투명도).
+ */
+export function Spinner({
+  className = "size-8",
+  durationMs = 800,
+}: SpinnerProps) {
   return (
-    <div
-      className={`animate-spin rounded-full border-4 border-[#32A287] border-t-transparent ${className}`}
+    <span
+      role="status"
+      aria-label="로딩 중"
+      className={`inline-block shrink-0 animate-spin rounded-full border-2 border-current/30 border-t-current ${className}`}
+      style={{
+        animationDuration: `${durationMs}ms`,
+        animationTimingFunction: "linear",
+      }}
     />
   );
 }

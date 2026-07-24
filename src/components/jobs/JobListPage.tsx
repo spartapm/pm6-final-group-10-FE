@@ -175,7 +175,7 @@ export function JobListPage({ folderId, uncategorized }: JobListPageProps) {
       <div className="flex-1 overflow-y-auto bg-dd-gray-100 px-20 py-6">
         {isLoading ? (
           <div className="flex justify-center py-20">
-            <Spinner />
+            <Spinner className="size-8 text-dd-green" />
           </div>
         ) : jobs.length === 0 ? (
           showEmptyIllustration ? (
